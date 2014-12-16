@@ -3,10 +3,11 @@
 
 name:                hmo-project
 version:             0.1.0.0
-synopsis:            The goal of this project is to implement a heuristic algorithm for solving capacitated vehicle routing problem.
+synopsis:            The goal of this project is to implement a heuristic
+                     algorithm for solving capacitated vehicle routing problem.
 -- description:         
 -- license:             
-license-file:        LICENSE
+-- license-file:        LICENSE
 author:              Teon Banek, Vlatko Klabucar, Damir Tomic
 maintainer:          teon.banek@fer.hr, vlatko.klabucar@fer.hr, damir.tomic@fer.hr
 -- copyright:           
