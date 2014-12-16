@@ -1,9 +1,10 @@
+import Data.List.Split (splitOn)
+import Prelude
+import System.Environment (getArgs)
 import Solve
-import System.Environment
-import Data.List.Split
 
 main = do
   args <- getArgs
-  f <- readFile $ args!!0
-  let spl = map ( map (splitOn "\t")) . map (splitOn "\r\n") . splitOn "\r\n\r\n" $ f
-  putStrLn . show $ spl
+  f <- readFile $ head args
+  let spl = map (map (splitOn "\t") . splitOn "\r\n") . splitOn "\r\n\r\n" $ f
+  print spl
