@@ -26,5 +26,13 @@ euclideanDistance (x1, y1) (x2, y2) =
 travelCost :: Vertex -> Vertex -> Cost
 travelCost a = truncate . (*100) . euclideanDistance a
 
+pairwisePermutation :: [a] -> [[a]]
+pairwisePermutation []       = []
+pairwisePermutation (x:[])   = [[x]]
+pairwisePermutation (x:y:[]) = [[x,y],[y,x]]
+pairwisePermutation xs       = pwP xs (length xs)
+  where pwP ys 1 = [[last ys] ++ (tail . init $ ys) ++ [head ys], ys]
+        pwP ys n = ((take (n-2) ys) ++ [ys!!(n-1)] ++ [ys!!(n-2)] ++ (drop n ys)):(pwP ys (n-1))
+
 solve :: Graph -> IO ()
 solve _ = putStrLn "Bazzzzzinga!"
