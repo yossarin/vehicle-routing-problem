@@ -9,19 +9,19 @@ listify = filter (/= [[""]]) . map (map (splitOn "\t") . splitOn "\r\n") . split
 readNumbers :: [[[String]]] -> [[[Int]]]
 readNumbers =  map (map (map read))
 
-main :: IO ()
-main = do
-  args <- getArgs
-  f <- readFile $ head args
-
+parse :: String -> Graph
+parse f = do
   let groupedFIle = readNumbers $ listify f
   let warehouses = zip3 (map (\[x,y] -> (x,y)) $ groupedFIle!!1) (concat $ groupedFIle!!4) (concat $ groupedFIle!!6)
   let customers = zip (map (\[x,y] -> (x,y)) $ groupedFIle!!2) (concat $ groupedFIle!!5)
   let truckCap  = head . head $ groupedFIle!!3
   let truckCos  = head . head $ groupedFIle!!7
+  (warehouses, customers, truckCap, truckCos)
 
-  putStrLn $ "Warehouses: " ++ show warehouses
-  putStrLn $ "\nCustomers: " ++ show customers
-  putStrLn $ "\ntruckCap & Cos: " ++ show truckCap ++ " " ++ show truckCos
-  solve (warehouses, customers, truckCap, truckCos)
+main :: IO ()
+main = do
+  args <- getArgs
+  f <- readFile $ head args
+
+  solve $ parse f
 
