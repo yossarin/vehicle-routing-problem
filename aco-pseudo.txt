@@ -1,0 +1,27 @@
+Ant Colony Optimization pseudocode
+==================================
+
+ACO pseudocode for solving multiple depot vehicle routing problem.
+
+Adjustable parameters are in stars, e.g. *alpha*.
+
+repeat max-iterations:
+    # Generate *m* feasible solutions.
+    repeat *m*:
+        solutions += generate-solution(*alpha*, *beta*, pheromones)
+    # Generate new solutions from existing by mutating each with *mut-prob*.
+    mutations = mutate-solutions(*mut-prob*, solutions)
+    # Find best among all current solutions.
+    current-best = find-best(mutations, solutions)
+    # Update pheromones according to current best solution.
+    update-pheromones(*decay-rate*, *deposit-rate*, pheromones, current-best)
+    # Set all time best
+    if current-best < best:
+        best = current-best
+
+fn generate-solution(*alpha*, *beta*, pheromones):
+    until visited-all(visited)
+      # Start new route if current truck has unsufficient cargo.
+      next-city = probability-select(*alpha*, *beta*, pheromones)
+      visited += next-city
+    return best-2-opt-exchange(visited)
