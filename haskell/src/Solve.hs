@@ -12,6 +12,7 @@ module Solve
 ) where
 
 import Data.Array.Repa hiding (map, (++))
+import Data.List (sortBy, minimumBy, nub)
 import Prelude hiding (lookup)
 
 type Vertex    = (Int, Int)
@@ -23,6 +24,39 @@ type Demand    = Int
 type Customer  = (Vertex, Demand)
 type Warehouse = (Vertex, Capacity, Cost)
 type Graph     = ([Warehouse], [Customer], TruckCap, TruckCost) 
+
+-- | Route is a list of node indexes (into array) starting from one warehouse
+-- | and a travel cost + TruckCost (initial warehouse cost is excluded).
+type Route = ([Int], Cost)
+
+-- | Stores single solution data.
+data Solution = Solution {
+  routes :: [Route], -- ^ Routes of each truck.
+  solutionCost :: Cost -- ^ Total cost of the solution.
+}
+
+cmpSolutionCost :: Solution -> Solution -> Ordering
+cmpSolutionCost a b = solutionCost a `compare` solutionCost b
+
+-- | Returns the lowest cost solution
+findBestSolution :: [Solution] -> Solution
+findBestSolution = minimumBy cmpSolutionCost
+
+-- | Sorts from lowest cost to highest.
+sortSolutions :: [Solution] -> [Solution]
+sortSolutions = sortBy cmpSolutionCost
+
+-- | TODO: Needs to take reference to warehouse map.
+calcSolutionCost :: [Route] -> TruckCost -> Cost
+calcSolutionCost rs tc =
+  let traveling = sum $ map snd rs
+      trucks = tc * length rs
+      whs = usedWarehouses rs
+  in undefined
+
+-- | Returns indexes of used warehouses.
+usedWarehouses :: [Route] -> [Int]
+usedWarehouses = nub . map (head . fst)
 
 euclideanDistance :: Vertex -> Vertex -> Float
 euclideanDistance (x1, y1) (x2, y2) =
@@ -45,10 +79,10 @@ fst3 (x,_,_) = x
 
 vertexMap :: Graph -> Array U DIM1 Vertex
 vertexMap (ws, cs, _, _) =
-  fromListUnboxed (Z :. size) (wsz ++ csz)
+  fromListUnboxed (Z :. len) (wsz ++ csz)
   where wsz = map fst3 ws
         csz = map fst cs
-        size = length ws + length cs
+        len = length ws + length cs
 
 vertexCost :: Graph -> Array U DIM2 Cost
 vertexCost g =
