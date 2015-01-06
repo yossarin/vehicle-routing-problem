@@ -9,7 +9,6 @@ module Solve
 , Capacity
 , vertexMap
 , vertexCost
-, pairwisePermutation
 ) where
 
 import Data.Array.Repa hiding (map, (++))
