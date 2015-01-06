@@ -37,15 +37,15 @@ pairwisePermutation (x:[])   = [[x]]
 pairwisePermutation (x:y:[]) = [[x,y],[y,x]]
 pairwisePermutation xs       = pwP xs (length xs)
   where pwP ys 1 = [[last ys] ++ (tail . init $ ys) ++ [head ys], ys]
-        pwP ys n = ((take (n-2) ys) ++ [ys!!(n-1)] ++ [ys!!(n-2)] ++ (drop n ys)):(pwP ys (n-1))
+        pwP ys n = (take (n-2) ys ++ [ys!!(n-1)] ++ [ys!!(n-2)] ++ drop n ys) : pwP ys (n-1)
 
 fst3 :: (a,b,c) -> a
 fst3 (x,_,_) = x
 
 vertexMap :: Graph -> Array Int Vertex
-vertexMap (ws, cs, _, _) = array (1, (length ws)+(length cs)) (wsz ++ csz)
+vertexMap (ws, cs, _, _) = array (1, length ws+length cs) (wsz ++ csz)
   where wsz = zip [1..] (map fst3 ws)
-        csz = zip [((length ws)+1)..] (map fst cs)
+        csz = zip [(length ws+1)..] (map fst cs)
 
 vertexCost :: Graph -> Array (Int, Int) Cost
 vertexCost g = array ((1,1), (end, end)) [((i,j), travelCost (vm!i) (vm!j)) | i <- [1..end], j <- [1..end]]
