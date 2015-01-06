@@ -11,7 +11,7 @@ module Solve
 , vertexCost
 ) where
 
-import Data.Array
+import Data.Array.Repa hiding (map, (++))
 import Prelude hiding (lookup)
 
 type Vertex    = (Int, Int)
@@ -42,15 +42,19 @@ pairwisePermutation xs       = pwP xs (length xs)
 fst3 :: (a,b,c) -> a
 fst3 (x,_,_) = x
 
-vertexMap :: Graph -> Array Int Vertex
-vertexMap (ws, cs, _, _) = array (1, length ws+length cs) (wsz ++ csz)
-  where wsz = zip [1..] (map fst3 ws)
-        csz = zip [(length ws+1)..] (map fst cs)
+vertexMap :: Graph -> Array U DIM1 Vertex
+vertexMap (ws, cs, _, _) =
+  fromListUnboxed (Z :. size) (wsz ++ csz)
+  where wsz = map fst3 ws
+        csz = map fst cs
+        size = length ws + length cs
 
-vertexCost :: Graph -> Array (Int, Int) Cost
-vertexCost g = array ((1,1), (end, end)) [((i,j), travelCost (vm!i) (vm!j)) | i <- [1..end], j <- [1..end]]
-  where vm  = vertexMap g
-        end = snd $ bounds vm
+vertexCost :: Graph -> Array U DIM2 Cost
+vertexCost g =
+  fromListUnboxed (Z :. end :. end) costs
+  where costs = [travelCost (vm ! (Z :. i)) (vm ! (Z :. j)) | i <- [0..end-1], j <- [0..end-1]]
+        vm  = vertexMap g
+        end = size $ extent vm
 
 solve :: Graph -> IO ()
 solve _ = putStrLn "Bazzzzzinga!"
