@@ -14,6 +14,7 @@ module Solve
 import Data.Array.Repa hiding (map, (++))
 import Data.List (sortBy, minimumBy, nub)
 import Prelude hiding (lookup)
+import Data.Array.Repa.Repr.Vector (fromListVector, V)
 
 type Vertex    = (Int, Int)
 type Cost      = Int
@@ -23,7 +24,17 @@ type TruckCost = Cost
 type Demand    = Int
 type Customer  = (Vertex, Demand)
 type Warehouse = (Vertex, Capacity, Cost)
-type Graph     = ([Warehouse], [Customer], TruckCap, TruckCost) 
+type Graph     = ([Warehouse], [Customer], TruckCap, TruckCost)
+
+data MapElem = Cus { ver :: Vertex
+                   , dem :: Int }
+             | War { ver :: Vertex
+                   , cap :: Int
+                   , cos :: Int }
+            deriving (Show, Eq)
+
+type IndexVertexMap = Array V DIM1 MapElem
+type IndexCostMap   = Array U DIM2 Cost
 
 -- | Route is a list of node indexes (into array) starting from one warehouse
 -- | and a travel cost + TruckCost (initial warehouse cost is excluded).
@@ -74,22 +85,25 @@ pairwisePermutation xs = pwP xs (length xs)
         pwP ys n = (start ++ b : a : rest) : pwP ys (n-1)
           where (start, a:b:rest) = splitAt (n - 2) ys
 
-fst3 :: (a,b,c) -> a
-fst3 (x,_,_) = x
+cusToElem :: Customer -> MapElem
+cusToElem (v, d) = Cus v d
 
-vertexMap :: Graph -> Array U DIM1 Vertex
+warToElem :: Warehouse -> MapElem
+warToElem (v, cap, cos) = War v cap cos
+
+vertexMap :: Graph -> IndexVertexMap
 vertexMap (ws, cs, _, _) =
-  fromListUnboxed (Z :. len) (wsz ++ csz)
-  where wsz = map fst3 ws
-        csz = map fst cs
-        len = length ws + length cs
+  fromListVector (Z :. size) ((wsEls ++ csEls)::[MapElem])
+  where wsEls = map warToElem ws
+        csEls = map cusToElem cs
+        size  = length ws + length cs
 
-vertexCost :: Graph -> Array U DIM2 Cost
-vertexCost g =
+vertexCost :: IndexVertexMap -> IndexCostMap
+vertexCost ivm =
   fromListUnboxed (Z :. end :. end) costs
-  where costs = [travelCost (vm ! (Z :. i)) (vm ! (Z :. j)) | i <- [0..end-1], j <- [0..end-1]]
-        vm  = vertexMap g
-        end = size $ extent vm
+  where costs = [travelCost (ver $ ivm ! (Z :. i)) (ver $ ivm ! (Z :. j)) | i <- [0..end-1], j <- [0..end-1]]
+        end = size $ extent ivm
+
 
 solve :: Graph -> IO ()
 solve _ = putStrLn "Bazzzzzinga!"
