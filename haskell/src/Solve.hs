@@ -46,6 +46,7 @@ data Solution = Solution {
   solutionCost :: Cost -- ^ Total cost of the solution.
 }
 
+-- | Compares solutions by their cost.
 cmpSolutionCost :: Solution -> Solution -> Ordering
 cmpSolutionCost a b = solutionCost a `compare` solutionCost b
 
@@ -76,6 +77,7 @@ euclideanDistance (x1, y1) (x2, y2) =
 travelCost :: Vertex -> Vertex -> Cost
 travelCost a = truncate . (*100) . euclideanDistance a
 
+-- | Takes a list and returns a list of pairwise permutations (2-opt exchanges).
 pairwisePermutation :: [a] -> [[a]]
 pairwisePermutation [] = []
 pairwisePermutation (x:[]) = [[x]]
@@ -91,6 +93,8 @@ cusToElem (v, d) = Cus v d
 warToElem :: Warehouse -> MapElem
 warToElem (v, cap, cost) = War v cap cost
 
+-- | Takes a graph of the problem and creates a 1 dimensional array
+-- | which maps index ordered nodes to their coordinate vertices.
 vertexMap :: Graph -> IndexVertexMap
 vertexMap (ws, cs, _, _) =
   fromListVector (Z :. len) ((wsEls ++ csEls)::[MapElem])
@@ -98,6 +102,8 @@ vertexMap (ws, cs, _, _) =
         csEls = map cusToElem cs
         len  = length ws + length cs
 
+-- | Takes a mapping of node indexes to their vertices and creates index based
+-- | matrix of travel costs between nodes.
 vertexCost :: IndexVertexMap -> IndexCostMap
 vertexCost ivm =
   fromListUnboxed (Z :. end :. end) costs
