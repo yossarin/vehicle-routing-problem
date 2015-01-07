@@ -3,6 +3,10 @@ module Solve
 , module Solve.Data
 , vertexMap
 , vertexCost
+, initPheromoneMap
+, evaporatePheromoneMap
+, updatePheromoneMap
+, probability
 ) where
 
 import Data.Array.Repa hiding (map, (++), zipWith)
@@ -12,6 +16,7 @@ import Data.Maybe (fromMaybe)
 import Prelude hiding (lookup)
 import Solve.Data
 import System.Random (RandomGen, randomR)
+import qualified Data.Array.Repa.Operators.Mapping as M
 
 data MapElem = Cus { elemVer :: Vertex
                    , elemDem :: Demand }
@@ -22,6 +27,7 @@ data MapElem = Cus { elemVer :: Vertex
 
 type IndexVertexMap = Array V DIM1 MapElem
 type IndexCostMap   = Array U DIM2 Cost
+type PheromoneMap   = Array U DIM2 Double
 
 -- | Takes a reference to node index data mapping, cost of sending a truck,
 -- | routes for each truck and calculates the total cost.
@@ -143,6 +149,42 @@ vertexCost ivm =
         calcCost i j = travelCost (getVertex i) (getVertex j)
         getVertex i = indexElemVer ivm i
         end = size $ extent ivm
+
+-- | Takes a mapping of node indices to their vertices and creates index based
+-- | matrix of pheromone trails with initial value p
+initPheromoneMap :: IndexVertexMap -> Double -> PheromoneMap
+initPheromoneMap ivm p = 
+  fromListUnboxed (Z :. end :. end) (take (end*end) $ repeat p)
+  where end = size $ extent ivm
+
+-- | Takes a mapping of pheromones and decreases its values by fixed rate r
+evaporatePheromoneMap :: PheromoneMap -> Double -> IO (PheromoneMap)
+evaporatePheromoneMap ivm r = computeP $ M.map (\x -> (1-r)*x) ivm
+
+-- | Takes Solution, PheromoneMap and parameters for adjusting the update
+-- | and updates the PheromoneMap according to the standard update formula for ACO
+updatePheromoneMap :: Solution -> PheromoneMap -> Double -> IO (PheromoneMap)
+updatePheromoneMap s pm scal = computeP $ traverse pm id update 
+  where delta    = scal / (fromIntegral $ solutionCost s)
+        edges    = concat . map (pairs . routeNodes) $ routes s
+	pairs xs = zip (init xs) (tail xs)
+	update _ (Z :. i :. j) = 
+	  if (i,j) `elem` edges then 
+	      pm ! (Z :. i :. j) + delta
+	  else
+	      pm ! (Z :. i :. j)
+
+-- | Takes initial position, potential, PheromoneMap, IndexCostMap,
+-- | parameter a and b and calculates the propability of choosing
+-- | the potential position as a next hop via standard formula for ACO
+probability :: Int -> Int 
+  -> PheromoneMap -> IndexCostMap
+  -> Int -> Int -> Double
+probability i p pm vc a b =
+  mul (pm ! (Z :. i :. p)) (fromIntegral $ vc ! (Z :. i :. p)) / s
+  where (Z :. end :. _) = extent vc
+        s   = sum [ mul (pm ! (Z :. i :. j)) (fromIntegral $ vc ! (Z :. i :. j)) | j <- [0..end-1]]
+        mul x y = x^a + y^b
 
 solve :: Graph -> IO ()
 solve _ = putStrLn "Bazzzzzinga!"
