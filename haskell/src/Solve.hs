@@ -33,7 +33,7 @@ calcSolutionCost ivm rs =
   in traveling + whCosts
 
 -- | Takes a node index data mapping and a solution. Returns True if all
--- | the routes' demand doesn't exceed the capacity of their warehouses.
+-- | the routes' demand don't exceed the capacity of their warehouses.
 canSupply :: IndexVertexMap -> Solution -> Bool
 canSupply ivm (Solution rs _) = all canSupply' $ usedWarehouses rs
   where canSupply' (i, _, d) = d <= elemCap (ivm ! (Z :. i))
@@ -43,14 +43,15 @@ indexElemVer ivm i = elemVer $ ivm ! (Z :. i)
 
 -- | Takes node index data and index cost mappings, number of warehouses,
 -- | mutation probability, random generator and a solution. Returns new
--- | solution which may have been mutated.
+-- | solution which may have been mutated and if it can supply its routes.
 mutateSolution :: RandomGen g =>
   IndexVertexMap -> IndexCostMap ->
   Int -> Float -> g -> Solution -> (Solution, g)
-mutateSolution ivm icm whs prob rg (Solution rs _) =
+mutateSolution ivm icm whs prob rg s@(Solution rs _) =
   let (rs', rg') = mutateRoutes icm whs prob rg rs
       sc = calcSolutionCost ivm rs'
-  in (Solution rs' sc, rg')
+      s' = Solution rs' sc
+  in if canSupply ivm s' then (s', rg') else (s, rg')
 
 -- | Takes a node index cost mapping, number of warehouses, mutation
 -- | mutation probability, random number generator and a list of routes.
