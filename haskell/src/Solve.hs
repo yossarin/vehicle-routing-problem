@@ -6,8 +6,9 @@ module Solve
 ) where
 
 import Data.Array.Repa hiding (map, (++), zipWith)
-import Data.List (groupBy, sort)
 import Data.Array.Repa.Repr.Vector (fromListVector, V)
+import Data.List (foldl', groupBy, sort)
+import Data.Maybe (fromMaybe)
 import Prelude hiding (lookup)
 import Solve.Data
 import System.Random (RandomGen, randomR)
@@ -40,24 +41,57 @@ canSupply ivm (Solution rs _) = all canSupply' $ usedWarehouses rs
 indexElemVer :: IndexVertexMap -> Int -> Vertex
 indexElemVer ivm i = elemVer $ ivm ! (Z :. i)
 
--- | Takes a node index data mapping, number of warehouses, random number
--- | generator and a route. Returns new route with randomly selected warehouse.
-mutateRouteWarehouse :: RandomGen g =>
-  IndexVertexMap -> Int -> g -> Route -> (Route, g)
-mutateRouteWarehouse ivm whs rg r =
-  let (rnd, rg') = randomR (0, whs - 1) rg
-  in (changeWarehouse ivm rnd r, rg')
+-- | Takes node index data and index cost mappings, number of warehouses,
+-- | mutation probability, random generator and a solution. Returns new
+-- | solution which may have been mutated.
+mutateSolution :: RandomGen g =>
+  IndexVertexMap -> IndexCostMap ->
+  Int -> Float -> g -> Solution -> (Solution, g)
+mutateSolution ivm icm whs prob rg (Solution rs _) =
+  let (rs', rg') = mutateRoutes icm whs prob rg rs
+      sc = calcSolutionCost ivm rs'
+  in (Solution rs' sc, rg')
 
--- | Takes node index data mapping, new warehouse index and a route.
+-- | Takes a node index cost mapping, number of warehouses, mutation
+-- | mutation probability, random number generator and a list of routes.
+-- | Returns new list of routes, of which some may have different warehouses.
+mutateRoutes :: RandomGen g =>
+  IndexCostMap ->
+  Int -> Float -> g -> [Route] -> ([Route], g)
+mutateRoutes icm whs prob rg = foldl' mutate ([], rg)
+  where mutate (xs, g) x = (fromMaybe x x' : xs, g')
+          where (x', g') = mutateRouteWarehouse icm whs prob g x
+
+-- | Takes a node index cost mapping, number of warehouses, mutation
+-- | probability, random number generator and a route. Returns new route if
+-- | mutation happens, otherwise Nothing.
+mutateRouteWarehouse :: RandomGen g =>
+  IndexCostMap ->
+  Int -> Float -> g -> Route -> (Maybe Route, g)
+mutateRouteWarehouse icm whs prob rg r =
+  let (rnd, rg') = randomR (0.0, 1.0) rg
+      (newRoute, rg'') = randomRouteWarehouse icm whs rg' r
+  in if prob > rnd then (Nothing, rg')
+    else (Just newRoute, rg'')
+
+-- | Takes a node index cost mapping, number of warehouses, random number
+-- | generator and a route. Returns new route with randomly selected warehouse.
+randomRouteWarehouse :: RandomGen g =>
+  IndexCostMap ->
+  Int -> g -> Route -> (Route, g)
+randomRouteWarehouse icm whs rg r =
+  let (rnd, rg') = randomR (0, whs - 1) rg
+  in (changeWarehouse icm rnd r, rg')
+
+-- | Takes node index cost mapping, new warehouse index and a route.
 -- | Constructs a new route with replaced warehouse node index.
-changeWarehouse :: IndexVertexMap -> Int -> Route -> Route
-changeWarehouse ivm w r@(Route ns rc _) =
-  let oldWh = indexElemVer ivm $ head ns
-      newWh = indexElemVer ivm w
-      start = indexElemVer ivm . head $ tail ns
-      end   = indexElemVer ivm $ last ns
-      oldWhTravel = travelCost oldWh start + travelCost oldWh end
-      newWhTravel = travelCost newWh start + travelCost newWh end
+changeWarehouse :: IndexCostMap -> Int -> Route -> Route
+changeWarehouse icm w r@(Route ns rc _) =
+  let oldWh = head ns
+      start = head $ tail ns
+      end   = last ns
+      oldWhTravel = icm ! (Z :. oldWh :. start) + icm ! (Z :. oldWh :. end)
+      newWhTravel = icm ! (Z :. w :. start) + icm ! (Z :. w :. end)
   in r { routeNodes = w : tail ns, routeCost = rc - oldWhTravel + newWhTravel }
 
 -- | Returns indexes of used warehouses, counts how many times they are used and
