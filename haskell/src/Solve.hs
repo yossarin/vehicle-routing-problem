@@ -147,26 +147,26 @@ vertexCost ivm =
   fromListUnboxed (Z :. end :. end) costs
   where costs = [calcCost i j | i <- [0..end-1], j <- [0..end-1]]
         calcCost i j = travelCost (getVertex i) (getVertex j)
-        getVertex i = indexElemVer ivm i
+        getVertex = indexElemVer ivm
         end = size $ extent ivm
 
 -- | Takes a mapping of node indices to their vertices and creates index based
 -- | matrix of pheromone trails with initial value p
 initPheromoneMap :: IndexVertexMap -> Double -> PheromoneMap
 initPheromoneMap ivm p = 
-  fromListUnboxed (Z :. end :. end) (take (end*end) $ repeat p)
+  fromListUnboxed (Z :. end :. end) (replicate (end*end) p)
   where end = size $ extent ivm
 
 -- | Takes a mapping of pheromones and decreases its values by fixed rate r
-evaporatePheromoneMap :: PheromoneMap -> Double -> IO (PheromoneMap)
+evaporatePheromoneMap :: PheromoneMap -> Double -> IO PheromoneMap
 evaporatePheromoneMap ivm r = computeP $ M.map (\x -> (1-r)*x) ivm
 
 -- | Takes Solution, PheromoneMap and parameters for adjusting the update
 -- | and updates the PheromoneMap according to the standard update formula for ACO
-updatePheromoneMap :: Solution -> PheromoneMap -> Double -> IO (PheromoneMap)
+updatePheromoneMap :: Solution -> PheromoneMap -> Double -> IO PheromoneMap
 updatePheromoneMap s pm scal = computeP $ traverse pm id update 
-  where delta    = scal / (fromIntegral $ solutionCost s)
-        edges    = concat . map (pairs . routeNodes) $ routes s
+  where delta    = scal / fromIntegral (solutionCost s)
+        edges    = concatMap (pairs . routeNodes) $ routes s
         pairs xs = zip (init xs) (tail xs)
         update _ (Z :. i :. j) = 
           if (i,j) `elem` edges then 

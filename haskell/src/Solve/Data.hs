@@ -17,7 +17,7 @@ module Solve.Data (
 , solutionToString
 ) where
 
-import Data.List (sortBy, minimumBy, intersperse, intercalate)
+import Data.List (sortBy, minimumBy, intercalate)
 
 type Vertex    = (Int, Int)
 type Cost      = Int
@@ -54,15 +54,18 @@ findBestSolution = minimumBy cmpSolutionCost
 sortSolutions :: [Solution] -> [Solution]
 sortSolutions = sortBy cmpSolutionCost
 
--- | Returns String representation of Route
-routeToString :: Route -> String
-routeToString r = show w ++ ":  " ++ (intersperse ' ' . concat $ map show ns)
+-- | Returns String representation of Route, takes node index offset for
+-- | non warehouse nodes.
+routeToString :: Int -> Route -> String
+routeToString offset r = show w ++ ":  " ++ nodes
   where (w:ns) = routeNodes r
+        nodes = unwords $ map (show . (+offset)) ns
 
--- | Returns String representation of Solution
-solutionToString :: Solution -> String
-solutionToString s = n ++ lf ++ (intercalate lf rs) ++ lf ++ "\r\n" ++ sc
-  where rs = map routeToString $ routes s
+-- | Returns String representation of Solution, takes node index offset
+-- | for non warehouse nodes.
+solutionToString :: Int -> Solution -> String
+solutionToString o s = n ++ lf ++ intercalate lf rs ++ lf ++ "\n" ++ sc
+  where rs = map (routeToString o) $ routes s
         sc = show $ solutionCost s
         n  = show $ length rs
-        lf = "\r\n\r\n"
+        lf = "\n\n"
