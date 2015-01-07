@@ -11,7 +11,7 @@ module Solve
 , vertexCost
 ) where
 
-import Data.Array.Repa hiding (map, (++))
+import Data.Array.Repa hiding (map, (++), zipWith)
 import Data.List (sortBy, minimumBy, nub)
 import Prelude hiding (lookup)
 import Data.Array.Repa.Repr.Vector (fromListVector, V)
@@ -26,11 +26,11 @@ type Customer  = (Vertex, Demand)
 type Warehouse = (Vertex, Capacity, Cost)
 type Graph     = ([Warehouse], [Customer], TruckCap, TruckCost)
 
-data MapElem = Cus { ver :: Vertex
-                   , dem :: Int }
-             | War { ver :: Vertex
-                   , cap :: Int
-                   , cos :: Int }
+data MapElem = Cus { elemVer :: Vertex
+                   , elemDem :: Demand }
+             | War { elemVer :: Vertex
+                   , elemCap :: Capacity
+                   , elemCost :: Cost }
             deriving (Show, Eq)
 
 type IndexVertexMap = Array V DIM1 MapElem
@@ -89,19 +89,21 @@ cusToElem :: Customer -> MapElem
 cusToElem (v, d) = Cus v d
 
 warToElem :: Warehouse -> MapElem
-warToElem (v, cap, cos) = War v cap cos
+warToElem (v, cap, cost) = War v cap cost
 
 vertexMap :: Graph -> IndexVertexMap
 vertexMap (ws, cs, _, _) =
-  fromListVector (Z :. size) ((wsEls ++ csEls)::[MapElem])
+  fromListVector (Z :. len) ((wsEls ++ csEls)::[MapElem])
   where wsEls = map warToElem ws
         csEls = map cusToElem cs
-        size  = length ws + length cs
+        len  = length ws + length cs
 
 vertexCost :: IndexVertexMap -> IndexCostMap
 vertexCost ivm =
   fromListUnboxed (Z :. end :. end) costs
-  where costs = [travelCost (ver $ ivm ! (Z :. i)) (ver $ ivm ! (Z :. j)) | i <- [0..end-1], j <- [0..end-1]]
+  where costs = zipWith calcCost [0..end-1] [0..end-1]
+        calcCost i j = travelCost (getVertex i) (getVertex j)
+        getVertex i = elemVer $ ivm ! (Z :. i)
         end = size $ extent ivm
 
 
