@@ -10,6 +10,7 @@ import Data.List (groupBy, sort)
 import Data.Array.Repa.Repr.Vector (fromListVector, V)
 import Prelude hiding (lookup)
 import Solve.Data
+import System.Random (RandomGen, randomR)
 
 data MapElem = Cus { elemVer :: Vertex
                    , elemDem :: Demand }
@@ -38,6 +39,14 @@ canSupply ivm (Solution rs _) = all canSupply' $ usedWarehouses rs
 
 indexElemVer :: IndexVertexMap -> Int -> Vertex
 indexElemVer ivm i = elemVer $ ivm ! (Z :. i)
+
+-- | Takes a node index data mapping, number of warehouses, random number
+-- | generator and a route. Returns new route with randomly selected warehouse.
+mutateRouteWarehouse :: RandomGen g =>
+  IndexVertexMap -> Int -> g -> Route -> (Route, g)
+mutateRouteWarehouse ivm whs rg r =
+  let (rnd, rg') = randomR (0, whs - 1) rg
+  in (changeWarehouse ivm rnd r, rg')
 
 -- | Takes node index data mapping, new warehouse index and a route.
 -- | Constructs a new route with replaced warehouse node index.
