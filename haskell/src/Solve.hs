@@ -11,7 +11,7 @@ module Solve
 
 import Data.Array.Repa hiding (map, (++), zipWith)
 import Data.Array.Repa.Repr.Vector (fromListVector, V)
-import Data.List (foldl', groupBy, sort)
+import Data.List (foldl', groupBy, sort, sortBy)
 import Data.Maybe (fromMaybe)
 import Prelude hiding (lookup)
 import Solve.Data
@@ -167,24 +167,35 @@ updatePheromoneMap :: Solution -> PheromoneMap -> Double -> IO PheromoneMap
 updatePheromoneMap s pm scal = computeP $ traverse pm id update 
   where delta    = scal / fromIntegral (solutionCost s)
         edges    = concatMap (pairs . routeNodes) $ routes s
-        pairs xs = zip xs $ tail $ cycle xs
+        pairs xs = zip xs $ tail $ cycle xs -- returning to warehouse
         update get (Z :. i :. j) = 
           if (i,j) `elem` edges then 
             get (Z :. i :. j) + delta
           else
             get (Z :. i :. j)
 
+-- | Takes random generator, list of elements paired with their probabilites,
+-- | sum of all probabilities and returns one element and new generator.
+-- | If the list is empty returns Nothing as selected element.
+rouletteWheel :: RandomGen g => g -> [(a, Double)] -> Double -> (Maybe a, g)
+rouletteWheel rg xs maxProb = (select 0.0 sorted, rg')
+  where (rnd, rg') = randomR (0.0, maxProb) rg
+        sorted = sortBy (\(_,px) (_,py) -> py `compare` px) xs
+        select _ [] = Nothing
+        select acc ((x, p):ys) | rnd <= p + acc = Just x
+                               | otherwise = select (p + acc) ys
+
 -- | Takes initial position, potential, PheromoneMap, IndexCostMap,
--- | parameter a and b and calculates the propability of choosing
--- | the potential position as a next hop via standard formula for ACO
+-- | parameter a and b and calculates the probability of choosing
+-- | the potential position as a next hop via standard formula for ACO.
+-- | The probability isn't scaled to [0, 1] interval.
 probability :: Int -> Int 
   -> PheromoneMap -> IndexCostMap
-  -> Int -> Int -> Double
+  -> Double -> Double -> Double
 probability i p pm vc a b =
-  mul (pm ! (Z :. i :. p)) (fromIntegral $ vc ! (Z :. i :. p)) / s
+  mul (pm ! (Z :. i :. p)) (fromIntegral $ vc ! (Z :. i :. p))
   where (Z :. end :. _) = extent vc
-        s   = sum [ mul (pm ! (Z :. i :. j)) (fromIntegral $ vc ! (Z :. i :. j)) | j <- [0..end-1]]
-        mul x y = x^a + y^b
+        mul x y = x**a + y**b
 
 solve :: Graph -> IO ()
 solve _ = putStrLn "Bazzzzzinga!"
