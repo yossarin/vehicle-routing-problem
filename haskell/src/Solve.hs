@@ -1,30 +1,15 @@
 module Solve
 ( solve
-, Graph
-, Vertex
-, Customer
-, Warehouse
-, Cost
-, Demand
-, Capacity
+, module Solve.Data
 , vertexMap
 , vertexCost
 ) where
 
 import Data.Array.Repa hiding (map, (++), zipWith)
-import Data.List (sortBy, minimumBy, nub)
-import Prelude hiding (lookup)
+import Data.List (nub)
 import Data.Array.Repa.Repr.Vector (fromListVector, V)
-
-type Vertex    = (Int, Int)
-type Cost      = Int
-type Capacity  = Int
-type TruckCap  = Capacity
-type TruckCost = Cost
-type Demand    = Int
-type Customer  = (Vertex, Demand)
-type Warehouse = (Vertex, Capacity, Cost)
-type Graph     = ([Warehouse], [Customer], TruckCap, TruckCost)
+import Prelude hiding (lookup)
+import Solve.Data
 
 data MapElem = Cus { elemVer :: Vertex
                    , elemDem :: Demand }
@@ -35,28 +20,6 @@ data MapElem = Cus { elemVer :: Vertex
 
 type IndexVertexMap = Array V DIM1 MapElem
 type IndexCostMap   = Array U DIM2 Cost
-
--- | Route is a list of node indexes (into array) starting from one warehouse
--- | and a travel cost + TruckCost (initial warehouse cost is excluded).
-type Route = ([Int], Cost)
-
--- | Stores single solution data.
-data Solution = Solution {
-  routes :: [Route], -- ^ Routes of each truck.
-  solutionCost :: Cost -- ^ Total cost of the solution.
-}
-
--- | Compares solutions by their cost.
-cmpSolutionCost :: Solution -> Solution -> Ordering
-cmpSolutionCost a b = solutionCost a `compare` solutionCost b
-
--- | Returns the lowest cost solution
-findBestSolution :: [Solution] -> Solution
-findBestSolution = minimumBy cmpSolutionCost
-
--- | Sorts from lowest cost to highest.
-sortSolutions :: [Solution] -> [Solution]
-sortSolutions = sortBy cmpSolutionCost
 
 -- | TODO: Needs to take reference to warehouse map.
 calcSolutionCost :: [Route] -> TruckCost -> Cost
@@ -111,7 +74,6 @@ vertexCost ivm =
         calcCost i j = travelCost (getVertex i) (getVertex j)
         getVertex i = elemVer $ ivm ! (Z :. i)
         end = size $ extent ivm
-
 
 solve :: Graph -> IO ()
 solve _ = putStrLn "Bazzzzzinga!"
