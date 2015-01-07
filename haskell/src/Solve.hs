@@ -6,7 +6,7 @@ module Solve
 ) where
 
 import Data.Array.Repa hiding (map, (++), zipWith)
-import Data.List (nub)
+import Data.List (group, sort)
 import Data.Array.Repa.Repr.Vector (fromListVector, V)
 import Prelude hiding (lookup)
 import Solve.Data
@@ -21,17 +21,20 @@ data MapElem = Cus { elemVer :: Vertex
 type IndexVertexMap = Array V DIM1 MapElem
 type IndexCostMap   = Array U DIM2 Cost
 
--- | TODO: Needs to take reference to warehouse map.
-calcSolutionCost :: [Route] -> TruckCost -> Cost
-calcSolutionCost rs tc =
+-- | Takes a reference to node index data mapping, cost of sending a truck,
+-- | routes for each truck and calculates the total cost.
+calcSolutionCost :: IndexVertexMap -> TruckCost -> [Route] -> Cost
+calcSolutionCost ivm tc rs =
   let traveling = sum $ map snd rs
       trucks = tc * length rs
-      whs = usedWarehouses rs
-  in undefined
+      whs = map fst $ usedWarehouses rs
+      whCosts = sum $ map (\i -> elemCost $ ivm ! (Z :. i)) whs
+  in traveling + trucks + whCosts
 
--- | Returns indexes of used warehouses.
-usedWarehouses :: [Route] -> [Int]
-usedWarehouses = nub . map (head . fst)
+-- | Returns indexes of used warehouses and counts how many times they are used.
+usedWarehouses :: [Route] -> [(Int, Int)]
+usedWarehouses = map counts . group . sort . map (head . fst)
+  where counts xs = (head xs, length xs)
 
 euclideanDistance :: Vertex -> Vertex -> Float
 euclideanDistance (x1, y1) (x2, y2) =
@@ -57,7 +60,7 @@ warToElem :: Warehouse -> MapElem
 warToElem (v, cap, cost) = War v cap cost
 
 -- | Takes a graph of the problem and creates a 1 dimensional array
--- | which maps index ordered nodes to their coordinate vertices.
+-- | which maps index ordered nodes to their data (capacity, vertex etc.).
 vertexMap :: Graph -> IndexVertexMap
 vertexMap (ws, cs, _, _) =
   fromListVector (Z :. len) ((wsEls ++ csEls)::[MapElem])
