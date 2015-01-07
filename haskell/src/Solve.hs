@@ -30,6 +30,12 @@ calcSolutionCost ivm rs =
       whCosts = sum $ map (\(i,_,_) -> elemCost $ ivm ! (Z :. i)) whs
   in traveling + whCosts
 
+-- | Takes a node index data mapping and a solution. Returns True if all
+-- | the routes' demand doesn't exceed the capacity of their warehouses.
+canSupply :: IndexVertexMap -> Solution -> Bool
+canSupply ivm (Solution rs _) = all canSupply' $ usedWarehouses rs
+  where canSupply' (i, _, d) = d <= elemCap (ivm ! (Z :. i))
+
 -- | Returns indexes of used warehouses, counts how many times they are used and
 -- | the total demand for capacity of that warehouse.
 usedWarehouses :: [Route] -> [(Int, Int, Demand)]
