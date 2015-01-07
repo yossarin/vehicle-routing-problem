@@ -3,6 +3,8 @@ module Solve
 , module Solve.Data
 , vertexMap
 , vertexCost
+, initPheromoneMap
+, evaporatePheromoneMap
 ) where
 
 import Data.Array.Repa hiding (map, (++), zipWith)
@@ -12,6 +14,7 @@ import Data.Maybe (fromMaybe)
 import Prelude hiding (lookup)
 import Solve.Data
 import System.Random (RandomGen, randomR)
+import qualified Data.Array.Repa.Operators.Mapping as M
 
 data MapElem = Cus { elemVer :: Vertex
                    , elemDem :: Demand }
@@ -22,6 +25,7 @@ data MapElem = Cus { elemVer :: Vertex
 
 type IndexVertexMap = Array V DIM1 MapElem
 type IndexCostMap   = Array U DIM2 Cost
+type PheromoneMap   = Array U DIM2 Double
 
 -- | Takes a reference to node index data mapping, cost of sending a truck,
 -- | routes for each truck and calculates the total cost.
@@ -143,6 +147,17 @@ vertexCost ivm =
         calcCost i j = travelCost (getVertex i) (getVertex j)
         getVertex i = indexElemVer ivm i
         end = size $ extent ivm
+
+-- | Takes a mapping of node indices to their vertices and creates index based
+-- | matrix of pheromone trails
+initPheromoneMap :: IndexVertexMap -> Double -> PheromoneMap
+initPheromoneMap ivm p = 
+  fromListUnboxed (Z :. end :. end) (take (end*end) $ repeat p)
+  where end = size $ extent ivm
+
+-- | Takes a mapping of pheromones and decreases its values by fixed rate
+evaporatePheromoneMap :: PheromoneMap -> Double -> IO (PheromoneMap)
+evaporatePheromoneMap ivm p = computeP $ M.map (\x -> (1-p)*x) ivm
 
 solve :: Graph -> IO ()
 solve _ = putStrLn "Bazzzzzinga!"
