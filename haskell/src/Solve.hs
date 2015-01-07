@@ -5,6 +5,7 @@ module Solve
 , vertexCost
 , initPheromoneMap
 , evaporatePheromoneMap
+, updatePheromoneMap
 ) where
 
 import Data.Array.Repa hiding (map, (++), zipWith)
@@ -158,6 +159,19 @@ initPheromoneMap ivm p =
 -- | Takes a mapping of pheromones and decreases its values by fixed rate
 evaporatePheromoneMap :: PheromoneMap -> Double -> IO (PheromoneMap)
 evaporatePheromoneMap ivm p = computeP $ M.map (\x -> (1-p)*x) ivm
+
+-- | Takes Solution, PheromoneMap and parameters for adjusting the update
+-- | and updates the PheromoneMap according to the standard update formula for ACO
+updatePheromoneMap :: Solution -> PheromoneMap -> Double -> IO (PheromoneMap)
+updatePheromoneMap s pm scal = computeP $ traverse pm id update 
+  where delta    = scal / (fromIntegral $ solutionCost s)
+        edges    = concat . map (pairs . routeNodes) $ routes s 
+	pairs xs = zip (init xs) (tail xs)
+	update _ (Z :. i :. j) = 
+	  if (i,j) `elem` edges then 
+	      pm ! (Z :. i :. j) + delta
+	  else
+	      pm ! (Z :. i :. j)
 
 solve :: Graph -> IO ()
 solve _ = putStrLn "Bazzzzzinga!"
