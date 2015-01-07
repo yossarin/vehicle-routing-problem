@@ -33,13 +33,13 @@ data Route = Route {
   routeNodes :: [Int] -- ^ Node indexes (into array) starting from warehouse.
 , routeCost :: Cost -- ^ Travel cost + TruckCost (warehouse cost is excluded).
 , routeDemand :: Demand -- ^  Total demand for this path.
-}
+} deriving (Show)
 
 -- | Stores single solution data.
 data Solution = Solution {
   routes :: [Route], -- ^ Routes of each truck.
   solutionCost :: Cost -- ^ Total cost of the solution.
-}
+} deriving (Show)
 
 -- | Compares solutions by their cost.
 cmpSolutionCost :: Solution -> Solution -> Ordering

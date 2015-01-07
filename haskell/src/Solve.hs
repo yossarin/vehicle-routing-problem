@@ -6,7 +6,7 @@ module Solve
 ) where
 
 import Data.Array.Repa hiding (map, (++), zipWith)
-import Data.List (group, sort)
+import Data.List (groupBy, sort)
 import Data.Array.Repa.Repr.Vector (fromListVector, V)
 import Prelude hiding (lookup)
 import Solve.Data
@@ -26,14 +26,16 @@ type IndexCostMap   = Array U DIM2 Cost
 calcSolutionCost :: IndexVertexMap -> [Route] -> Cost
 calcSolutionCost ivm rs =
   let traveling = sum $ map routeCost rs
-      whs = map fst $ usedWarehouses rs
-      whCosts = sum $ map (\i -> elemCost $ ivm ! (Z :. i)) whs
+      whs = usedWarehouses rs
+      whCosts = sum $ map (\(i,_,_) -> elemCost $ ivm ! (Z :. i)) whs
   in traveling + whCosts
 
--- | Returns indexes of used warehouses and counts how many times they are used.
-usedWarehouses :: [Route] -> [(Int, Int)]
-usedWarehouses = map counts . group . sort . map (head . routeNodes)
-  where counts xs = (head xs, length xs)
+-- | Returns indexes of used warehouses, counts how many times they are used and
+-- | the total demand for capacity of that warehouse.
+usedWarehouses :: [Route] -> [(Int, Int, Demand)]
+usedWarehouses = map cnts . groupBy (\(a,_) (b,_) -> a == b) . sort . map whDem
+  where whDem r = (head $ routeNodes r, routeDemand r)
+        cnts xs = (fst $ head xs, length xs, sum $ map snd xs)
 
 euclideanDistance :: Vertex -> Vertex -> Float
 euclideanDistance (x1, y1) (x2, y2) =
