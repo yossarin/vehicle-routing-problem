@@ -161,18 +161,18 @@ initPheromoneMap ivm p =
 evaporatePheromoneMap :: PheromoneMap -> Double -> IO PheromoneMap
 evaporatePheromoneMap ivm r = computeP $ M.map (\x -> (1-r)*x) ivm
 
--- | Takes Solution, PheromoneMap and parameters for adjusting the update
--- | and updates the PheromoneMap according to the standard update formula for ACO
+-- | Takes Solution, PheromoneMap and parameters for adjusting the update and
+-- | updates the PheromoneMap according to the standard update formula for ACO
 updatePheromoneMap :: Solution -> PheromoneMap -> Double -> IO PheromoneMap
 updatePheromoneMap s pm scal = computeP $ traverse pm id update 
   where delta    = scal / fromIntegral (solutionCost s)
         edges    = concatMap (pairs . routeNodes) $ routes s
-        pairs xs = zip (init xs) (tail xs)
-        update _ (Z :. i :. j) = 
+        pairs xs = zip xs $ tail $ cycle xs
+        update get (Z :. i :. j) = 
           if (i,j) `elem` edges then 
-            pm ! (Z :. i :. j) + delta
+            get (Z :. i :. j) + delta
           else
-            pm ! (Z :. i :. j)
+            get (Z :. i :. j)
 
 -- | Takes initial position, potential, PheromoneMap, IndexCostMap,
 -- | parameter a and b and calculates the propability of choosing
