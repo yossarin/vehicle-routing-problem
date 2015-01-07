@@ -150,15 +150,15 @@ vertexCost ivm =
         end = size $ extent ivm
 
 -- | Takes a mapping of node indices to their vertices and creates index based
--- | matrix of pheromone trails
+-- | matrix of pheromone trails with initial value p
 initPheromoneMap :: IndexVertexMap -> Double -> PheromoneMap
 initPheromoneMap ivm p = 
   fromListUnboxed (Z :. end :. end) (take (end*end) $ repeat p)
   where end = size $ extent ivm
 
--- | Takes a mapping of pheromones and decreases its values by fixed rate
+-- | Takes a mapping of pheromones and decreases its values by fixed rate r
 evaporatePheromoneMap :: PheromoneMap -> Double -> IO (PheromoneMap)
-evaporatePheromoneMap ivm p = computeP $ M.map (\x -> (1-p)*x) ivm
+evaporatePheromoneMap ivm r = computeP $ M.map (\x -> (1-p)*r) ivm
 
 -- | Takes Solution, PheromoneMap and parameters for adjusting the update
 -- | and updates the PheromoneMap according to the standard update formula for ACO
