@@ -36,6 +36,21 @@ canSupply :: IndexVertexMap -> Solution -> Bool
 canSupply ivm (Solution rs _) = all canSupply' $ usedWarehouses rs
   where canSupply' (i, _, d) = d <= elemCap (ivm ! (Z :. i))
 
+indexElemVer :: IndexVertexMap -> Int -> Vertex
+indexElemVer ivm i = elemVer $ ivm ! (Z :. i)
+
+-- | Takes node index data mapping, new warehouse index and a route.
+-- | Constructs a new route with replaced warehouse node index.
+changeWarehouse :: IndexVertexMap -> Int -> Route -> Route
+changeWarehouse ivm w r@(Route ns rc _) =
+  let oldWh = indexElemVer ivm $ head ns
+      newWh = indexElemVer ivm w
+      start = indexElemVer ivm . head $ tail ns
+      end   = indexElemVer ivm $ last ns
+      oldWhTravel = travelCost oldWh start + travelCost oldWh end
+      newWhTravel = travelCost newWh start + travelCost newWh end
+  in r { routeNodes = w : tail ns, routeCost = rc - oldWhTravel + newWhTravel }
+
 -- | Returns indexes of used warehouses, counts how many times they are used and
 -- | the total demand for capacity of that warehouse.
 usedWarehouses :: [Route] -> [(Int, Int, Demand)]
@@ -82,7 +97,7 @@ vertexCost ivm =
   fromListUnboxed (Z :. end :. end) costs
   where costs = zipWith calcCost [0..end-1] [0..end-1]
         calcCost i j = travelCost (getVertex i) (getVertex j)
-        getVertex i = elemVer $ ivm ! (Z :. i)
+        getVertex i = indexElemVer ivm i
         end = size $ extent ivm
 
 solve :: Graph -> IO ()
