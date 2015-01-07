@@ -64,5 +64,5 @@ solutionToString :: Solution -> String
 solutionToString s = n ++ lf ++ (intercalate lf rs) ++ lf ++ "\r\n" ++ sc
   where rs = map routeToString $ routes s
         sc = show $ solutionCost s
-	n  = show $ length rs
-	lf = "\r\n\r\n"
+        n  = show $ length rs
+        lf = "\r\n\r\n"
