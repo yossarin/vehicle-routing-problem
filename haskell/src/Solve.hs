@@ -139,7 +139,7 @@ vertexMap (ws, cs, _, _) =
 vertexCost :: IndexVertexMap -> IndexCostMap
 vertexCost ivm =
   fromListUnboxed (Z :. end :. end) costs
-  where costs = zipWith calcCost [0..end-1] [0..end-1]
+  where costs = [calcCost i j | i <- [0..end-1], j <- [0..end-1]]
         calcCost i j = travelCost (getVertex i) (getVertex j)
         getVertex i = indexElemVer ivm i
         end = size $ extent ivm
