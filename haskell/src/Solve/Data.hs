@@ -9,7 +9,7 @@ module Solve.Data (
 , Customer
 , Warehouse
 , Graph
-, Route
+, Route(..)
 , Solution(..)
 , cmpSolutionCost
 , findBestSolution
@@ -28,9 +28,12 @@ type Customer  = (Vertex, Demand)
 type Warehouse = (Vertex, Capacity, Cost)
 type Graph     = ([Warehouse], [Customer], TruckCap, TruckCost)
 
--- | Route is a list of node indexes (into array) starting from one warehouse
--- | and a travel cost + TruckCost (initial warehouse cost is excluded).
-type Route = ([Int], Cost)
+-- | Route of a single truck.
+data Route = Route {
+  routeNodes :: [Int] -- ^ Node indexes (into array) starting from warehouse.
+, routeCost :: Cost -- ^ Travel cost + TruckCost (warehouse cost is excluded).
+, routeDemand :: Demand -- ^  Total demand for this path.
+}
 
 -- | Stores single solution data.
 data Solution = Solution {

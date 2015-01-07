@@ -23,17 +23,16 @@ type IndexCostMap   = Array U DIM2 Cost
 
 -- | Takes a reference to node index data mapping, cost of sending a truck,
 -- | routes for each truck and calculates the total cost.
-calcSolutionCost :: IndexVertexMap -> TruckCost -> [Route] -> Cost
-calcSolutionCost ivm tc rs =
-  let traveling = sum $ map snd rs
-      trucks = tc * length rs
+calcSolutionCost :: IndexVertexMap -> [Route] -> Cost
+calcSolutionCost ivm rs =
+  let traveling = sum $ map routeCost rs
       whs = map fst $ usedWarehouses rs
       whCosts = sum $ map (\i -> elemCost $ ivm ! (Z :. i)) whs
-  in traveling + trucks + whCosts
+  in traveling + whCosts
 
 -- | Returns indexes of used warehouses and counts how many times they are used.
 usedWarehouses :: [Route] -> [(Int, Int)]
-usedWarehouses = map counts . group . sort . map (head . fst)
+usedWarehouses = map counts . group . sort . map (head . routeNodes)
   where counts xs = (head xs, length xs)
 
 euclideanDistance :: Vertex -> Vertex -> Float
