@@ -167,12 +167,12 @@ updatePheromoneMap :: Solution -> PheromoneMap -> Double -> IO (PheromoneMap)
 updatePheromoneMap s pm scal = computeP $ traverse pm id update 
   where delta    = scal / (fromIntegral $ solutionCost s)
         edges    = concat . map (pairs . routeNodes) $ routes s
-	pairs xs = zip (init xs) (tail xs)
-	update _ (Z :. i :. j) = 
-	  if (i,j) `elem` edges then 
-	      pm ! (Z :. i :. j) + delta
-	  else
-	      pm ! (Z :. i :. j)
+        pairs xs = zip (init xs) (tail xs)
+        update _ (Z :. i :. j) = 
+          if (i,j) `elem` edges then 
+            pm ! (Z :. i :. j) + delta
+          else
+            pm ! (Z :. i :. j)
 
 -- | Takes initial position, potential, PheromoneMap, IndexCostMap,
 -- | parameter a and b and calculates the propability of choosing
