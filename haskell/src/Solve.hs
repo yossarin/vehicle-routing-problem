@@ -229,5 +229,54 @@ selectNextCustomer icm pm a b start cs rg = rouletteWheel rg cs' sumProb
         mapProb (x:xs) (ys, sp) = mapProb xs ((x, p):ys, sp + p)
           where p = probability start x pm icm a b
 
+-- | Function taking 2 node indexes and returning travel cost between the two
+-- | and demand of the second one.
+type CostDemand = Int -> Int -> (Cost, Demand)
+-- | Function taking set of blocked nodes, remaining truck capacity and
+-- | returns list of possible next customer nodes.
+type NextCustomers = S.Set Int -> TruckCap -> [Int]
+-- | Function taking start node index, list of next node indexes and a random
+-- | generator then returns probabilty selected next node.
+type SelectCustomer g = Int -> [Int] -> g -> (Maybe Int, g)
+
+-- | Recursively construct a route for a truck.
+-- | Takes functions for getting travel cost, demand, next possible customer
+-- | nodes and probability selection, starting route, remaining truck capacity,
+-- | set of visited nodes and random generator.
+recurseRoute :: RandomGen g =>
+  CostDemand -> NextCustomers -> SelectCustomer g ->
+  Route -> TruckCap -> S.Set Int -> g ->
+  (Route, S.Set Int, g)
+recurseRoute cost gen sel r@(Route rns rc rd) tc visited rg =
+  let nextCs = gen visited tc
+      end = last $ routeNodes r
+      next = if null nextCs then (Nothing, rg) else sel end nextCs rg
+  in case next of
+      (Nothing, rg') -> (r, visited, rg')
+      (Just n, rg') ->
+        let (travel, demand) = cost end n
+            r' = Route (rns ++ [n]) (rc + travel) (rd + demand)
+            tc' = tc - demand
+        in recurseRoute cost gen sel r' tc' (S.insert n visited) rg'
+
+-- | Constructs a route for a truck (recursively).
+-- | Takes mappings from index to vertex data and travel costs;
+-- | cost of using a truck, it's capacity and starting warehouse location;
+-- | pheromone map with paremeters a and b;
+-- | set of visited and/or blocked node indexes and random generator.
+-- | Returns constructed route, new set of visited nodes and random generator.
+constructRoute :: RandomGen g =>
+  IndexVertexMap -> IndexCostMap ->
+  TruckCost -> TruckCap -> Int ->
+  PheromoneMap -> Double -> Double ->
+  S.Set Int -> g ->
+  (Route, S.Set Int, g)
+constructRoute ivm icm truckCost truckCap wh pm a b visited rg =
+  let cdf i j = (icm ! (Z :. i :. j), elemDem $ ivm ! (Z :. j))
+      ncs vs = nextCustomers ivm vs
+      sc i cs = selectNextCustomer icm pm a b i cs
+      route = Route [wh] truckCost 0
+  in recurseRoute cdf ncs sc route truckCap visited rg
+
 solve :: Graph -> IO ()
 solve _ = putStrLn "Bazzzzzinga!"
