@@ -7,16 +7,18 @@ module Solve
 , evaporatePheromoneMap
 , updatePheromoneMap
 , probability
+, nextCustomers
 ) where
 
 import Data.Array.Repa hiding (map, (++), zipWith)
+import qualified Data.Array.Repa.Operators.Mapping as M
 import Data.Array.Repa.Repr.Vector (fromListVector, V)
 import Data.List (foldl', groupBy, sort, sortBy)
 import Data.Maybe (fromMaybe)
+import qualified Data.Set as S
 import Prelude hiding (lookup)
 import Solve.Data
 import System.Random (RandomGen, randomR)
-import qualified Data.Array.Repa.Operators.Mapping as M
 
 data MapElem = Cus { elemVer :: Vertex
                    , elemDem :: Demand }
@@ -200,5 +202,18 @@ probability i p pm vc a b =
   where (Z :. end :. _) = extent vc
         mul x y = x**a + y**b
 
+-- | Takes index mapping to vertex data, set of blocked nodes,
+-- | current route and remaining truck capacity then returns indexes of
+-- | possible next customer nodes (that don't have greater demand than
+-- | remaining truck capacity).
+nextCustomers :: IndexVertexMap -> S.Set Int -> TruckCap -> [Int]
+nextCustomers ivm blocked tc
+  | tc <= 0 = []
+  | otherwise = filter canVisit [0..end-1]
+      where end = size $ extent ivm
+            canVisit i | i `S.member` blocked = False
+                       | otherwise = case ivm ! (Z :. i) of
+                            War {} -> False
+                            Cus _ dem -> dem <= tc
 solve :: Graph -> IO ()
 solve _ = putStrLn "Bazzzzzinga!"
