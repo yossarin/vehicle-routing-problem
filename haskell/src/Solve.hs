@@ -8,6 +8,7 @@ module Solve
 , updatePheromoneMap
 , probability
 , nextCustomers
+, selectNextCustomer
 ) where
 
 import Data.Array.Repa hiding (map, (++), zipWith)
@@ -215,5 +216,18 @@ nextCustomers ivm blocked tc
                        | otherwise = case ivm ! (Z :. i) of
                             War {} -> False
                             Cus _ dem -> dem <= tc
+
+-- | Takes index mapping to travel cost, pheromone map, a and b parameters,
+-- | starting position, list of potential customers and a random generator.
+-- | Returns next customer and new random generator.
+selectNextCustomer :: RandomGen g =>
+  IndexCostMap -> PheromoneMap -> Double -> Double ->
+  Int -> [Int] -> g -> (Maybe Int, g)
+selectNextCustomer icm pm a b start cs rg = rouletteWheel rg cs' sumProb
+  where (cs', sumProb) = mapProb cs ([], 0.0)
+        mapProb [] res = res
+        mapProb (x:xs) (ys, sp) = mapProb xs ((x, p):ys, sp + p)
+          where p = probability start x pm icm a b
+
 solve :: Graph -> IO ()
 solve _ = putStrLn "Bazzzzzinga!"
