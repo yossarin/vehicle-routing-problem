@@ -158,21 +158,23 @@ initPheromoneMap ivm p =
   where end = size $ extent ivm
 
 -- | Takes a mapping of pheromones and decreases its values by fixed rate r
+-- | ! Deprecated !
 evaporatePheromoneMap :: PheromoneMap -> Double -> IO PheromoneMap
 evaporatePheromoneMap ivm r = computeP $ M.map (\x -> (1-r)*x) ivm
 
--- | Takes Solution, PheromoneMap and parameters for adjusting the update and
--- | updates the PheromoneMap according to the standard update formula for ACO
-updatePheromoneMap :: Solution -> PheromoneMap -> Double -> IO PheromoneMap
-updatePheromoneMap s pm scal = computeP $ traverse pm id update 
+-- | Takes Solution, PheromoneMap and parameters for adjusting the reinfocement
+-- | and evaporation, and reinforces and evaporates the PheromoneMap according to 
+-- | the standard reinforcement and evaporation formula for ACO
+updatePheromoneMap :: Solution -> PheromoneMap -> Double -> Double -> IO PheromoneMap
+updatePheromoneMap s pm scal r = computeP $ traverse pm id update 
   where delta    = scal / fromIntegral (solutionCost s)
         edges    = concatMap (pairs . routeNodes) $ routes s
         pairs xs = zip xs $ tail $ cycle xs -- returning to warehouse
         update get (Z :. i :. j) = 
           if (i,j) `elem` edges then 
-            get (Z :. i :. j) + delta
+            get (Z :. i :. j)*(1-r) + delta
           else
-            get (Z :. i :. j)
+            get (Z :. i :. j)*(1-r)
 
 -- | Takes random generator, list of elements paired with their probabilites,
 -- | sum of all probabilities and returns one element and new generator.
