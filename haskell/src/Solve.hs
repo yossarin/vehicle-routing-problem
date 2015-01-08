@@ -9,6 +9,7 @@ module Solve
 , probability
 , nextCustomers
 , selectNextCustomer
+, constructRoute
 ) where
 
 import Data.Array.Repa hiding (map, (++), zipWith)
@@ -252,7 +253,9 @@ recurseRoute cost gen sel r@(Route rns rc rd) tc visited rg =
       end = last $ routeNodes r
       next = if null nextCs then (Nothing, rg) else sel end nextCs rg
   in case next of
-      (Nothing, rg') -> (r, visited, rg')
+      (Nothing, rg') -> 
+        let (travel, _) = cost (head $ routeNodes r) end
+	in (Route rns (rc + travel) rd, visited, rg')
       (Just n, rg') ->
         let (travel, demand) = cost end n
             r' = Route (rns ++ [n]) (rc + travel) (rd + demand)
