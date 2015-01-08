@@ -159,13 +159,14 @@ initPheromoneMap ivm p =
 
 -- | Takes a mapping of pheromones and decreases its values by fixed rate r
 -- | ! Deprecated !
-evaporatePheromoneMap :: PheromoneMap -> Double -> IO PheromoneMap
+evaporatePheromoneMap :: Monad m => PheromoneMap -> Double -> m PheromoneMap
 evaporatePheromoneMap ivm r = computeP $ M.map (\x -> (1-r)*x) ivm
 
 -- | Takes Solution, PheromoneMap and parameters for adjusting the reinfocement
--- | and evaporation, and reinforces and evaporates the PheromoneMap according to 
--- | the standard reinforcement and evaporation formula for ACO
-updatePheromoneMap :: Solution -> PheromoneMap -> Double -> Double -> IO PheromoneMap
+-- | and evaporation, then reinforces and evaporates the PheromoneMap according
+-- | to the standard reinforcement and evaporation formula for ACO.
+updatePheromoneMap :: Monad m =>
+  Solution -> PheromoneMap -> Double -> Double -> m PheromoneMap
 updatePheromoneMap s pm scal r = computeP $ traverse pm id update 
   where delta    = scal / fromIntegral (solutionCost s)
         edges    = concatMap (pairs . routeNodes) $ routes s
