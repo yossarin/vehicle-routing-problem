@@ -16,7 +16,7 @@ module Solve
 import Data.Array.Repa hiding (map, (++), zipWith)
 import qualified Data.Array.Repa.Operators.Mapping as M
 import Data.Array.Repa.Repr.Vector (fromListVector, V)
-import Data.List (foldl', groupBy, sort, sortBy)
+import Data.List (foldl', groupBy, sort)
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as S
 import Prelude hiding (lookup)
@@ -189,17 +189,6 @@ updatePheromoneMap s pm scal r = computeP $ traverse pm id update
           else
             get (Z :. i :. j)*(1-r)
 
--- | Takes random generator, list of elements paired with their probabilites,
--- | sum of all probabilities and returns one element and new generator.
--- | If the list is empty returns Nothing as selected element.
-rouletteWheel :: RandomGen g => g -> [(a, Double)] -> Double -> (Maybe a, g)
-rouletteWheel rg xs maxProb = (select 0.0 sorted, rg')
-  where (rnd, rg') = randomR (0.0, maxProb) rg
-        sorted = sortBy (\(_,px) (_,py) -> py `compare` px) xs
-        select _ [] = Nothing
-        select acc ((x, p):ys) | rnd <= p + acc = Just x
-                               | otherwise = select (p + acc) ys
-
 -- | Takes initial position, potential, PheromoneMap, IndexCostMap,
 -- | parameter a and b and calculates the probability of choosing
 -- | the potential position as a next hop via standard formula for ACO.
@@ -232,11 +221,16 @@ nextCustomers ivm blocked tc
 selectNextCustomer :: RandomGen g =>
   IndexCostMap -> PheromoneMap -> Double -> Double ->
   Int -> [Int] -> g -> (Maybe Int, g)
-selectNextCustomer icm pm a b start cs rg = rouletteWheel rg cs' sumProb
-  where (cs', sumProb) = mapProb cs ([], 0.0)
-        mapProb [] res = res
-        mapProb (x:xs) (ys, sp) = mapProb xs ((x, p):ys, sp + p)
-          where p = probability start x pm icm a b
+selectNextCustomer icm pm a b start = probabilitySelect prob
+  where prob c = probability start c pm icm a b
+
+-- | Takes pheromone map, a parameter (since warehouse probability depends only
+-- | on pheromone trail and not distance), list of warehouse nodes and random
+-- | generator. Returns selected warehouse and new random generator.
+selectWarehouse :: RandomGen g =>
+  PheromoneMap -> Double -> [Int] -> g -> (Maybe Int, g)
+selectWarehouse pm a = probabilitySelect prob
+  where prob w = (pm ! (Z :. w :. w)) ** a
 
 -- | Function taking 2 node indexes and returning travel cost between the two
 -- | and demand of the second one.
@@ -245,7 +239,7 @@ type CostDemand = Int -> Int -> (Cost, Demand)
 -- | returns list of possible next customer nodes.
 type NextCustomers = S.Set Int -> TruckCap -> [Int]
 -- | Function taking start node index, list of next node indexes and a random
--- | generator then returns probabilty selected next node.
+-- | generator then returns probability selected next node.
 type SelectCustomer g = Int -> [Int] -> g -> (Maybe Int, g)
 
 -- | Recursively construct a route for a truck.
