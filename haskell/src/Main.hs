@@ -4,7 +4,7 @@ import System.Environment (getArgs)
 import Solve
 
 listify :: String -> [[[String]]]
-listify = filter (/= [[""]]) . map (map (splitOn "\t") . splitOn "\r\n") . splitOn "\r\n\r\n"
+listify = filter (/= [[""]]) . map (map (splitOn "\t") . splitOn "\n") . splitOn "\n\n"
 
 readNumbers :: [[[String]]] -> [[[Int]]]
 readNumbers =  map (map (map read))
