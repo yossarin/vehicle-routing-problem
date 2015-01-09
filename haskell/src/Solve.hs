@@ -306,7 +306,7 @@ generateSolution :: RandomGen g =>
   (Solution, S.Set Int, g)
 generateSolution ivm icm truckCost truckCap ws pm a b bw visited rg rs =
   let wsn = length ws
-      ableWs = filter (\(_,c) -> c >= truckCap) ws
+      ableWs = filter (\(_,c) -> c > 0) ws
       end = size $ extent ivm  
       ((nextWh, whCap), rg') = case selectWarehouse pm a bw ableWs rg of
                                 (Nothing, g) -> (head ableWs, g)
@@ -366,7 +366,7 @@ solve g@(ws, _, truckCap, truckCost) = do
   let nw = length ws
   rg <- getStdGen
   let a = 0.1
-  let b = -2.0 -- negative rewards short route, smaller negative bigger reward.
+  let b = -3.0 -- negative rewards short route, smaller negative bigger reward.
   let bw = -1.0
   let iter = 200
   let m = 25
