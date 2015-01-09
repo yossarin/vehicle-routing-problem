@@ -200,8 +200,7 @@ probability :: Int -> Int
   -> Double -> Double -> Double
 probability i p pm vc a b =
   mul (pm ! (Z :. i :. p)) (fromIntegral $ vc ! (Z :. i :. p))
-  where (Z :. end :. _) = extent vc
-        mul x y = x**a + y**b
+  where mul x y = x**a + y**b
 
 -- | Takes index mapping to vertex data, set of blocked nodes,
 -- | current route and remaining truck capacity then returns indexes of
@@ -315,7 +314,7 @@ generateSolution :: RandomGen g =>
   (Solution, S.Set Int, g)
 generateSolution ivm icm truckCost truckCap ws pm a b visited rg rs =
   let wsn = length ws
-      ableWs = filter (\(i,c) -> c > 0) ws
+      ableWs = filter (\(_,c) -> c > 0) ws
       end = size $ extent ivm  
       ((nextWh, whCap), rg') = case selectWarehouse pm a ableWs rg of
                                 (Nothing, g) -> (head ableWs, g)
