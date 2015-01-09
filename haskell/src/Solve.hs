@@ -190,7 +190,7 @@ probability :: Int -> Int
   -> Double -> Double -> Double
 probability i p pm vc a b =
   mul (pm ! (Z :. i :. p)) (fromIntegral $ vc ! (Z :. i :. p))
-  where mul x y = x**a + y**b
+  where mul x y = x**a * y**b
 
 -- | Takes index mapping to vertex data, set of blocked nodes,
 -- | current route and remaining truck capacity then returns indexes of
@@ -306,7 +306,7 @@ generateSolution :: RandomGen g =>
   (Solution, S.Set Int, g)
 generateSolution ivm icm truckCost truckCap ws pm a b bw visited rg rs =
   let wsn = length ws
-      ableWs = filter (\(_,c) -> c > 0) ws
+      ableWs = filter (\(_,c) -> c >= truckCap) ws
       end = size $ extent ivm  
       ((nextWh, whCap), rg') = case selectWarehouse pm a bw ableWs rg of
                                 (Nothing, g) -> (head ableWs, g)
@@ -362,16 +362,16 @@ solve :: Graph -> IO ()
 solve g@(ws, _, truckCap, truckCost) = do
   let vm = vertexMap g
   let vc = vertexCost vm
-  let pm = initPheromoneMap vm 0.4
+  let pm = initPheromoneMap vm 1.0
   let nw = length ws
   rg <- getStdGen
-  let a = 1.5
-  let b = -4.2 -- negative rewards short route, smaller negative bigger reward.
-  let bw = 0.08
-  let iter = 1000
-  let m = 20
-  let mutProb = 0.5
-  let evap = 0.2
-  let deposit = 4.0E6
+  let a = 0.1
+  let b = -2.0 -- negative rewards short route, smaller negative bigger reward.
+  let bw = -1.0
+  let iter = 200
+  let m = 25
+  let mutProb = 0.15
+  let evap = 0.1
+  let deposit = 5.0E5
   let sol = aco vm vc truckCost truckCap nw pm a b bw evap deposit mutProb iter m rg
   putStr $ solutionToString (-nw) sol
