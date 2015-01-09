@@ -14,6 +14,7 @@ module Solve
 , generateSolution
 ) where
 
+import Control.Parallel.Strategies (parMap, rseq)
 import Data.Array.Repa hiding (map, (++), zipWith)
 import qualified Data.Array.Repa.Operators.Mapping as M
 import Data.Array.Repa.Repr.Vector (fromListVector, V)
@@ -339,13 +340,14 @@ aco ::
 aco ivm icm trCost trCap nw pm a b evap deposit mutProb iter m rg =
   aco' (Solution [] 1000000) pm rg iter
   where ws = map (\i -> (i, elemCap $ ivm ! (Z :. i))) [0..nw-1]
+        map' = parMap rseq
         aco' best pm' rg' iter'
           | iter' == 0 = best
           | solutionCost best <= solutionCost best' = aco' best pm'' rg'' (iter' - 1)
           | otherwise = aco' best' pm'' rg'' $ iter' - 1
           where seeds = take m $ randoms rg'
-                sols = map (getSolution ivm icm trCost trCap ws pm a b) seeds
-                muts = map (getMutation ivm icm nw mutProb) $ sols `zip` seeds
+                sols = map' (getSolution ivm icm trCost trCap ws pm a b) seeds
+                muts = map' (getMutation ivm icm nw mutProb) $ sols `zip` seeds
                 best' = findBestSolution $ sols ++ muts
                 pm'' = fromMaybe pm $ updatePheromoneMap best' pm' evap deposit
                 rg'' = mkStdGen $ head seeds
