@@ -314,7 +314,7 @@ generateSolution ivm icm truckCost truckCap ws pm a b visited rg rs =
 -- | Returns a Solution.
 conformSolution :: Solution -> Int -> Solution
 conformSolution (Solution routes solutionCost) n =
-  let confRoute (Route (h:ns) rc rd) = Route (h : (map (\x -> x - n) ns)) rc rd
+  let confRoute (Route (h:ns) rc rd) = Route ((h + 1) : (map (\x -> x-n) ns)) rc rd
   in Solution (map confRoute routes) solutionCost
 
 solve :: Graph -> IO ()
@@ -327,5 +327,5 @@ solve g@(ws, _, truckCap, truckCost) = do
   
   let (sol, _, _) =  generateSolution vm vc truckCost truckCap [0..nw-1] pm 1.3 1.4 S.empty rg []
 
-  putStr . solutionToString 1 $ conformSolution sol nw
+  putStr . solutionToString 1 nw $ sol
 
