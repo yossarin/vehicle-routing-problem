@@ -17,7 +17,7 @@ module Solve
 import Data.Array.Repa hiding (map, (++), zipWith)
 import qualified Data.Array.Repa.Operators.Mapping as M
 import Data.Array.Repa.Repr.Vector (fromListVector, V)
-import Data.List (foldl', groupBy, sort)
+import Data.List (delete, foldl', groupBy, sort)
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as S
 import Prelude hiding (lookup)
@@ -226,12 +226,13 @@ selectNextCustomer icm pm a b start = probabilitySelect prob
   where prob c = probability start c pm icm a b
 
 -- | Takes pheromone map, a parameter (since warehouse probability depends only
--- | on pheromone trail and not distance), list of warehouse nodes and random
--- | generator. Returns selected warehouse and new random generator.
+-- | on pheromone trail and not distance), list of warehouse nodes with their
+-- | capacity and random generator.
+-- | Returns selected warehouse and new random generator.
 selectWarehouse :: RandomGen g =>
-  PheromoneMap -> Double -> [Int] -> g -> (Maybe Int, g)
+  PheromoneMap -> Double -> [(Int, Capacity)] -> g -> (Maybe (Int, Capacity), g)
 selectWarehouse pm a = probabilitySelect prob
-  where prob w = (pm ! (Z :. w :. w)) ** a
+  where prob (w, _) = (pm ! (Z :. w :. w))**a
 
 -- | Function taking 2 node indexes and returning travel cost between the two
 -- | and demand of the second one.
@@ -299,31 +300,35 @@ bestRoutePairwisePermutation icm tc route@(Route rns rc _) =
 
 -- | Generated a solution.
 -- | Takes mappings from index to vertex data and travel costs;
--- | cost of using a truck, it's capacity and a list of warehouses;
+-- | cost of using a truck, it's capacity and a list of warehouses with their
+-- | remaining capacity;
 -- | pheromone map with paremeters a and b;
 -- | set of visited node indexes and a random generator and routes
 -- | calclated so far.
 -- | Returns a Solution and a random generator.
--- | TODO: Generating able warehouses (that don't have empty capacity)
 generateSolution :: RandomGen g =>
   IndexVertexMap -> IndexCostMap ->
-  TruckCost -> TruckCap -> [Int] ->
+  TruckCost -> TruckCap -> [(Int, Capacity)] ->
   PheromoneMap -> Double -> Double -> 
   S.Set Int -> g -> [Route] ->
   (Solution, S.Set Int, g)
 generateSolution ivm icm truckCost truckCap ws pm a b visited rg rs =
   let wsn = length ws
-      ableWs = ws
+      ableWs = filter (\(i,c) -> c > 0) ws
       end = size $ extent ivm  
-      (nextWh, rg') = case selectWarehouse pm a ws rg of
-                        (Nothing, g) -> (head ableWs, g)
-                        (Just w, g) -> (w, g)
-      (r, visited', rg'') = constructRoute ivm icm truckCost truckCap nextWh pm a b visited rg'
+      ((nextWh, whCap), rg') = case selectWarehouse pm a ableWs rg of
+                                (Nothing, g) -> (head ableWs, g)
+                                (Just w, g) -> (w, g)
+      (r, visited', rg'') = constructRoute ivm icm truckCost (min truckCap whCap) nextWh pm a b visited rg'
+      rd = routeDemand r
+      (ws', rs') = if rd > 0 -- update warehouse capacity and delete empty routes
+            then ((nextWh, whCap - rd) : delete (nextWh, whCap) ws, r:rs)
+            else (ws, rs)
   in if S.fromList [wsn..end-1] == visited then
         let sc = calcSolutionCost ivm rs
         in  (Solution {routes = rs, solutionCost = sc}, visited, rg)
       else
-        generateSolution ivm icm truckCost truckCap ws pm a b visited' rg'' (r:rs)
+        generateSolution ivm icm truckCost truckCap ws' pm a b visited' rg'' rs'
 
 solve :: Graph -> IO ()
 solve g@(ws, _, truckCap, truckCost) = do
@@ -333,7 +338,7 @@ solve g@(ws, _, truckCap, truckCost) = do
   let nw = length ws
   rg <- getStdGen
   
-  let (sol, _, _) = generateSolution vm vc truckCost truckCap [0..nw-1] pm 1.3 1.4 S.empty rg []
+  let (sol, _, _) = generateSolution vm vc truckCost truckCap ([0..nw-1] `zip` repeat 770) pm 1.3 1.4 S.empty rg []
 
   putStr $ solutionToString (-nw) sol
 
