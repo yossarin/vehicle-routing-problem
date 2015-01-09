@@ -304,6 +304,7 @@ bestRoutePairwisePermutation icm tc route@(Route rns rc _) =
 -- | set of visited node indexes and a random generator and routes
 -- | calclated so far.
 -- | Returns a Solution and a random generator.
+-- | TODO: Generating able warehouses (that don't have empty capacity)
 generateSolution :: RandomGen g =>
   IndexVertexMap -> IndexCostMap ->
   TruckCost -> TruckCap -> [Int] ->
@@ -311,17 +312,18 @@ generateSolution :: RandomGen g =>
   S.Set Int -> g -> [Route] ->
   (Solution, S.Set Int, g)
 generateSolution ivm icm truckCost truckCap ws pm a b visited rg rs =
-  let wsn           = length ws
-      end           = size $ extent ivm  
-      wsProbs       = zip ws (cycle [1.0,1.0,0.7,0.5,0.6])
-      next_w = fromMaybe 1 . fst $ rouletteWheel rg wsProbs (sum $ map snd wsProbs) 
-      (r, visited', rg') = constructRoute ivm icm truckCost truckCap next_w pm a b visited rg
-  in case S.isSubsetOf (S.fromList [wsn..end-1]) visited of
-      True  ->
+  let wsn = length ws
+      ableWs = ws
+      end = size $ extent ivm  
+      (nextWh, rg') = case selectWarehouse pm a ws rg of
+                        (Nothing, g) -> (head ableWs, g)
+                        (Just w, g) -> (w, g)
+      (r, visited', rg'') = constructRoute ivm icm truckCost truckCap nextWh pm a b visited rg'
+  in if S.fromList [wsn..end-1] == visited then
         let sc = calcSolutionCost ivm rs
-        in  (Solution {routes = rs, solutionCost = sc}, visited, rg')
-      False ->
-        generateSolution ivm icm truckCost truckCap ws pm a b visited' rg' (r:rs)
+        in  (Solution {routes = rs, solutionCost = sc}, visited, rg)
+      else
+        generateSolution ivm icm truckCost truckCap ws pm a b visited' rg'' (r:rs)
 
 solve :: Graph -> IO ()
 solve g@(ws, _, truckCap, truckCost) = do
