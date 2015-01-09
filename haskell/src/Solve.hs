@@ -22,7 +22,7 @@ import Data.Maybe (fromMaybe)
 import qualified Data.Set as S
 import Prelude hiding (lookup)
 import Solve.Data
-import System.Random (RandomGen, randomR, getStdGen)
+import System.Random (getStdGen, mkStdGen, RandomGen, randomR, randoms, StdGen)
 
 data MapElem = Cus { elemVer :: Vertex
                    , elemDem :: Demand }
@@ -330,6 +330,41 @@ generateSolution ivm icm truckCost truckCap ws pm a b visited rg rs =
       else
         generateSolution ivm icm truckCost truckCap ws' pm a b visited' rg'' rs'
 
+aco ::
+  IndexVertexMap -> IndexCostMap ->
+  TruckCost -> TruckCap -> Int ->
+  PheromoneMap -> Double -> Double ->
+  Double -> Double ->
+  Float -> Int -> Int -> StdGen -> Solution
+aco ivm icm trCost trCap nw pm a b evap deposit mutProb iter m rg =
+  aco' (Solution [] 1000000) pm rg iter
+  where ws = map (\i -> (i, elemCap $ ivm ! (Z :. i))) [0..nw-1]
+        aco' best pm' rg' iter'
+          | iter' == 0 = best
+          | solutionCost best <= solutionCost best' = aco' best pm'' rg'' (iter' - 1)
+          | otherwise = aco' best' pm'' rg'' $ iter' - 1
+          where seeds = take m $ randoms rg'
+                sols = map (getSolution ivm icm trCost trCap ws pm a b) seeds
+                muts = map (getMutation ivm icm nw mutProb) $ sols `zip` seeds
+                best' = findBestSolution $ sols ++ muts
+                pm'' = fromMaybe pm $ updatePheromoneMap best' pm' evap deposit
+                rg'' = mkStdGen $ head seeds
+
+getMutation ::
+  IndexVertexMap -> IndexCostMap ->
+  Int -> Float -> (Solution, Int) -> Solution
+getMutation ivm icm nw prob (sol, seed) =
+  fst $ mutateSolution ivm icm nw prob (mkStdGen seed) sol
+
+getSolution ::
+  IndexVertexMap -> IndexCostMap ->
+  TruckCost -> TruckCap -> [(Int, Capacity)] ->
+  PheromoneMap -> Double -> Double ->
+  Int -> Solution
+getSolution ivm icm truckCost truckCap ws pm a b s =
+  (\(sol, _, _) -> sol) $
+    generateSolution ivm icm truckCost truckCap ws pm a b S.empty (mkStdGen s) []
+
 solve :: Graph -> IO ()
 solve g@(ws, _, truckCap, truckCost) = do
   let vm = vertexMap g
@@ -337,8 +372,12 @@ solve g@(ws, _, truckCap, truckCost) = do
   let pm = initPheromoneMap vm 1.2
   let nw = length ws
   rg <- getStdGen
-  
-  let (sol, _, _) = generateSolution vm vc truckCost truckCap ([0..nw-1] `zip` repeat 770) pm 1.3 1.4 S.empty rg []
-
+  let a = 1.3
+  let b = (-0.5)
+  let iter = 100
+  let m = 5
+  let mutProb = 0.05
+  let evap = 0.8
+  let deposit = 1.0
+  let sol = aco vm vc truckCost truckCap nw pm a b evap deposit mutProb iter m rg
   putStr $ solutionToString (-nw) sol
-
