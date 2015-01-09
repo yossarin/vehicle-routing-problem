@@ -10,6 +10,7 @@ module Solve
 , nextCustomers
 , selectNextCustomer
 , constructRoute
+, bestRoutePairwisePermutation
 ) where
 
 import Data.Array.Repa hiding (map, (++), zipWith)
@@ -41,6 +42,13 @@ calcSolutionCost ivm rs =
       whs = usedWarehouses rs
       whCosts = sum $ map (\(i,_,_) -> elemCost $ ivm ! (Z :. i)) whs
   in traveling + whCosts
+
+-- | Takes a node index travel cost mapping, list of nodes and calculates
+-- | total travel cost with returning to starting location.
+calcTravelCost :: IndexCostMap -> [Int] -> Cost
+calcTravelCost icm xs = sum $ map calcCost pairs
+  where pairs = zip xs $ tail $ cycle xs
+        calcCost (i,j) = icm ! (Z :. i :. j)
 
 -- | Takes a node index data mapping and a solution. Returns True if all
 -- | the routes' demand don't exceed the capacity of their warehouses.
@@ -255,7 +263,7 @@ recurseRoute cost gen sel r@(Route rns rc rd) tc visited rg =
   in case next of
       (Nothing, rg') -> 
         let (travel, _) = cost (head $ routeNodes r) end
-	in (Route rns (rc + travel) rd, visited, rg')
+        in (Route rns (rc + travel) rd, visited, rg')
       (Just n, rg') ->
         let (travel, demand) = cost end n
             r' = Route (rns ++ [n]) (rc + travel) (rd + demand)
@@ -276,10 +284,23 @@ constructRoute :: RandomGen g =>
   (Route, S.Set Int, g)
 constructRoute ivm icm truckCost truckCap wh pm a b visited rg =
   let cdf i j = (icm ! (Z :. i :. j), elemDem $ ivm ! (Z :. j))
-      ncs vs = nextCustomers ivm vs
-      sc i cs = selectNextCustomer icm pm a b i cs
+      ncs = nextCustomers ivm
+      sc = selectNextCustomer icm pm a b
       route = Route [wh] truckCost 0
   in recurseRoute cdf ncs sc route truckCap visited rg
+
+-- | Returns the best permutated route using 2 opt exchange.
+-- | Takes index mapping to travel cost, cost of sending a truck and a route.
+bestRoutePairwisePermutation :: IndexCostMap -> TruckCost -> Route -> Route
+bestRoutePairwisePermutation icm tc route@(Route rns rc _) =
+  let wh = head rns
+      perms = init . pairwisePermutation $ tail rns
+      findBest best [] = best
+      findBest best@(_, bc) (ns:nss) =
+        let bc' = tc + calcTravelCost icm (wh:ns)
+        in if bc' < bc then findBest (wh:ns, bc') nss else findBest best nss
+      (bestNodes, cost) = findBest (rns, rc) perms
+  in route { routeNodes = bestNodes, routeCost = cost }
 
 solve :: Graph -> IO ()
 solve _ = putStrLn "Bazzzzzinga!"
