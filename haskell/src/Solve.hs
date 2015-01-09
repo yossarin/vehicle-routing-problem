@@ -1,17 +1,6 @@
 module Solve
 ( solve
 , module Solve.Data
-, vertexMap
-, vertexCost
-, initPheromoneMap
-, evaporatePheromoneMap
-, updatePheromoneMap
-, probability
-, nextCustomers
-, selectNextCustomer
-, constructRoute
-, bestRoutePairwisePermutation
-, generateSolution
 ) where
 
 import Control.Parallel.Strategies (parMap, rseq)
@@ -65,10 +54,10 @@ indexElemVer ivm i = elemVer $ ivm ! (Z :. i)
 -- | mutation probability, random generator and a solution. Returns new
 -- | solution which may have been mutated and if it can supply its routes.
 mutateSolution :: RandomGen g =>
-  IndexVertexMap -> IndexCostMap ->
+  IndexVertexMap -> IndexCostMap -> TruckCost ->
   Int -> Float -> g -> Solution -> (Solution, g)
-mutateSolution ivm icm whs prob rg s@(Solution rs _) =
-  let (rs', rg') = mutateRoutes icm whs prob rg rs
+mutateSolution ivm icm tc whs prob rg s@(Solution rs _) =
+  let (rs', rg') = mutateRoutes icm tc whs prob rg rs
       sc = calcSolutionCost ivm rs'
       s' = Solution rs' sc
   in if canSupply ivm s' then (s', rg') else (s, rg')
@@ -77,23 +66,23 @@ mutateSolution ivm icm whs prob rg s@(Solution rs _) =
 -- | mutation probability, random number generator and a list of routes.
 -- | Returns new list of routes, of which some may have different warehouses.
 mutateRoutes :: RandomGen g =>
-  IndexCostMap ->
+  IndexCostMap -> TruckCost ->
   Int -> Float -> g -> [Route] -> ([Route], g)
-mutateRoutes icm whs prob rg = foldl' mutate ([], rg)
+mutateRoutes icm tc whs prob rg = foldl' mutate ([], rg)
   where mutate (xs, g) x = (fromMaybe x x' : xs, g')
-          where (x', g') = mutateRouteWarehouse icm whs prob g x
+          where (x', g') = mutateRouteWarehouse icm tc whs prob g x
 
 -- | Takes a node index cost mapping, number of warehouses, mutation
 -- | probability, random number generator and a route. Returns new route if
 -- | mutation happens, otherwise Nothing.
 mutateRouteWarehouse :: RandomGen g =>
-  IndexCostMap ->
+  IndexCostMap -> TruckCost ->
   Int -> Float -> g -> Route -> (Maybe Route, g)
-mutateRouteWarehouse icm whs prob rg r =
+mutateRouteWarehouse icm tc whs prob rg r =
   let (rnd, rg') = randomR (0.0, 1.0) rg
       (newRoute, rg'') = randomRouteWarehouse icm whs rg' r
   in if prob > rnd then (Nothing, rg')
-    else (Just newRoute, rg'')
+    else (Just $ bestRoutePairwisePermutation icm tc newRoute, rg'')
 
 -- | Takes a node index cost mapping, number of warehouses, random number
 -- | generator and a route. Returns new route with randomly selected warehouse.
@@ -231,9 +220,10 @@ selectNextCustomer icm pm a b start = probabilitySelect prob
 -- | capacity and random generator.
 -- | Returns selected warehouse and new random generator.
 selectWarehouse :: RandomGen g =>
-  PheromoneMap -> Double -> [(Int, Capacity)] -> g -> (Maybe (Int, Capacity), g)
-selectWarehouse pm a = probabilitySelect prob
-  where prob (w, _) = (pm ! (Z :. w :. w))**a
+  PheromoneMap -> Double -> Double ->
+  [(Int, Capacity)] -> g -> (Maybe (Int, Capacity), g)
+selectWarehouse pm a b = probabilitySelect prob
+  where prob (w, c) = (fromIntegral c)**b * (pm ! (Z :. w :. w))**a
 
 -- | Function taking 2 node indexes and returning travel cost between the two
 -- | and demand of the second one.
@@ -284,7 +274,8 @@ constructRoute ivm icm truckCost truckCap wh pm a b visited rg =
       ncs = nextCustomers ivm
       sc = selectNextCustomer icm pm a b
       route = Route [wh] truckCost 0
-  in recurseRoute cdf ncs sc route truckCap visited rg
+      (route', visited', rg') = recurseRoute cdf ncs sc route truckCap visited rg
+  in (bestRoutePairwisePermutation icm truckCost route', visited', rg')
 
 -- | Returns the best permutated route using 2 opt exchange.
 -- | Takes index mapping to travel cost, cost of sending a truck and a route.
@@ -310,14 +301,14 @@ bestRoutePairwisePermutation icm tc route@(Route rns rc _) =
 generateSolution :: RandomGen g =>
   IndexVertexMap -> IndexCostMap ->
   TruckCost -> TruckCap -> [(Int, Capacity)] ->
-  PheromoneMap -> Double -> Double -> 
+  PheromoneMap -> Double -> Double -> Double -> 
   S.Set Int -> g -> [Route] ->
   (Solution, S.Set Int, g)
-generateSolution ivm icm truckCost truckCap ws pm a b visited rg rs =
+generateSolution ivm icm truckCost truckCap ws pm a b bw visited rg rs =
   let wsn = length ws
       ableWs = filter (\(_,c) -> c > 0) ws
       end = size $ extent ivm  
-      ((nextWh, whCap), rg') = case selectWarehouse pm a ableWs rg of
+      ((nextWh, whCap), rg') = case selectWarehouse pm a bw ableWs rg of
                                 (Nothing, g) -> (head ableWs, g)
                                 (Just w, g) -> (w, g)
       (r, visited', rg'') = constructRoute ivm icm truckCost (min truckCap whCap) nextWh pm a b visited rg'
@@ -329,15 +320,15 @@ generateSolution ivm icm truckCost truckCap ws pm a b visited rg rs =
         let sc = calcSolutionCost ivm rs
         in  (Solution {routes = rs, solutionCost = sc}, visited, rg)
       else
-        generateSolution ivm icm truckCost truckCap ws' pm a b visited' rg'' rs'
+        generateSolution ivm icm truckCost truckCap ws' pm a b bw visited' rg'' rs'
 
 aco ::
   IndexVertexMap -> IndexCostMap ->
   TruckCost -> TruckCap -> Int ->
-  PheromoneMap -> Double -> Double ->
+  PheromoneMap -> Double -> Double -> Double ->
   Double -> Double ->
   Float -> Int -> Int -> StdGen -> Solution
-aco ivm icm trCost trCap nw pm a b evap deposit mutProb iter m rg =
+aco ivm icm trCost trCap nw pm a b bw evap deposit mutProb iter m rg =
   aco' (Solution [] 1000000) pm rg iter
   where ws = map (\i -> (i, elemCap $ ivm ! (Z :. i))) [0..nw-1]
         map' = parMap rseq
@@ -346,40 +337,41 @@ aco ivm icm trCost trCap nw pm a b evap deposit mutProb iter m rg =
           | solutionCost best <= solutionCost best' = aco' best pm'' rg'' (iter' - 1)
           | otherwise = aco' best' pm'' rg'' $ iter' - 1
           where seeds = take m $ randoms rg'
-                sols = map' (getSolution ivm icm trCost trCap ws pm a b) seeds
-                muts = map' (getMutation ivm icm nw mutProb) $ sols `zip` seeds
+                sols = map' (getSolution ivm icm trCost trCap ws pm a b bw) seeds
+                muts = map' (getMutation ivm icm trCost nw mutProb) $ sols `zip` seeds
                 best' = findBestSolution $ sols ++ muts
-                pm'' = fromMaybe pm $ updatePheromoneMap best' pm' evap deposit
+                pm'' = fromMaybe pm $ updatePheromoneMap best' pm' deposit evap
                 rg'' = mkStdGen $ head seeds
 
 getMutation ::
-  IndexVertexMap -> IndexCostMap ->
+  IndexVertexMap -> IndexCostMap -> TruckCost ->
   Int -> Float -> (Solution, Int) -> Solution
-getMutation ivm icm nw prob (sol, seed) =
-  fst $ mutateSolution ivm icm nw prob (mkStdGen seed) sol
+getMutation ivm icm tc nw prob (sol, seed) =
+  fst $ mutateSolution ivm icm tc nw prob (mkStdGen seed) sol
 
 getSolution ::
   IndexVertexMap -> IndexCostMap ->
   TruckCost -> TruckCap -> [(Int, Capacity)] ->
-  PheromoneMap -> Double -> Double ->
+  PheromoneMap -> Double -> Double -> Double -> 
   Int -> Solution
-getSolution ivm icm truckCost truckCap ws pm a b s =
+getSolution ivm icm truckCost truckCap ws pm a b bw s =
   (\(sol, _, _) -> sol) $
-    generateSolution ivm icm truckCost truckCap ws pm a b S.empty (mkStdGen s) []
+    generateSolution ivm icm truckCost truckCap ws pm a b bw S.empty (mkStdGen s) []
 
 solve :: Graph -> IO ()
 solve g@(ws, _, truckCap, truckCost) = do
   let vm = vertexMap g
   let vc = vertexCost vm
-  let pm = initPheromoneMap vm 1.2
+  let pm = initPheromoneMap vm 0.4
   let nw = length ws
   rg <- getStdGen
-  let a = 0.05
-  let b = -0.05 -- negative rewards short route, smaller negative bigger reward.
+  let a = 1.5
+  let b = -4.2 -- negative rewards short route, smaller negative bigger reward.
+  let bw = 0.08
   let iter = 1000
-  let m = 15
-  let mutProb = 0.1
-  let evap = 0.8
-  let deposit = 1.0
-  let sol = aco vm vc truckCost truckCap nw pm a b evap deposit mutProb iter m rg
+  let m = 20
+  let mutProb = 0.5
+  let evap = 0.2
+  let deposit = 4.0E6
+  let sol = aco vm vc truckCost truckCap nw pm a b bw evap deposit mutProb iter m rg
   putStr $ solutionToString (-nw) sol
