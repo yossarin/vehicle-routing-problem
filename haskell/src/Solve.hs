@@ -184,7 +184,7 @@ updatePheromoneMap s pm scal r = computeP $ traverse pm id update
   where delta    = scal / fromIntegral (solutionCost s)
         edges    = concatMap (pairs . routeNodes) $ routes s
         pairs [] = []
-        pairs xs@(x:_) = (x,x) : (zip xs $ tail $ cycle xs)
+        pairs xs@(x:_) = (x,x) : zip xs (tail $ cycle xs)
         update get (Z :. i :. j) = 
           if (i,j) `elem` edges then 
             get (Z :. i :. j)*(1-r) + delta
@@ -373,7 +373,7 @@ solve g@(ws, _, truckCap, truckCost) = do
   let nw = length ws
   rg <- getStdGen
   let a = 0.05
-  let b = (-0.05)
+  let b = -0.05 -- negative rewards short route, smaller negative bigger reward.
   let iter = 1000
   let m = 15
   let mutProb = 0.1
