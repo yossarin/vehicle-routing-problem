@@ -89,8 +89,8 @@ routeToString offset r = show w ++ ":  " ++ nodes
 -- | Returns String representation of Solution, takes node index offset
 -- | for non warehouse nodes.
 solutionToString :: Int -> Solution -> String
-solutionToString o s = n ++ lf ++ intercalate lf rs ++ lf ++ "\n" ++ sc
+solutionToString o s = n ++ lf ++ intercalate lf rs ++ lf ++ "\r\n" ++ sc
   where rs = map (routeToString o) $ routes s
         sc = show $ solutionCost s
         n  = show $ length rs
-        lf = "\n\n"
+        lf = "\r\n\r\n"

@@ -11,6 +11,7 @@ module Solve
 , selectNextCustomer
 , constructRoute
 , bestRoutePairwisePermutation
+, generateSolution
 ) where
 
 import Data.Array.Repa hiding (map, (++), zipWith)
@@ -21,7 +22,7 @@ import Data.Maybe (fromMaybe)
 import qualified Data.Set as S
 import Prelude hiding (lookup)
 import Solve.Data
-import System.Random (RandomGen, randomR)
+import System.Random (RandomGen, randomR, getStdGen)
 
 data MapElem = Cus { elemVer :: Vertex
                    , elemDem :: Demand }
@@ -296,5 +297,50 @@ bestRoutePairwisePermutation icm tc route@(Route rns rc _) =
       (bestNodes, cost) = findBest (rns, rc) perms
   in route { routeNodes = bestNodes, routeCost = cost }
 
+-- | Generated a solution.
+-- | Takes mappings from index to vertex data and travel costs;
+-- | cost of using a truck, it's capacity and a list of warehouses;
+-- | pheromone map with paremeters a and b;
+-- | set of visited node indexes and a random generator and routes
+-- | calclated so far.
+-- | Returns a Solution and a random generator.
+generateSolution :: RandomGen g =>
+  IndexVertexMap -> IndexCostMap ->
+  TruckCost -> TruckCap -> [Int] ->
+  PheromoneMap -> Double -> Double -> 
+  S.Set Int -> g -> [Route] ->
+  (Solution, S.Set Int, g)
+generateSolution ivm icm truckCost truckCap ws pm a b visited rg rs =
+  let numOfNodes    = (size $ extent ivm) - length ws 
+      wsProbs       = zip ws (cycle [1.0,1.0,0.7,0.5,0.6])
+      next_w = fromMaybe 1 . fst $ rouletteWheel rg wsProbs (sum $ map snd wsProbs) 
+      (r, visited', rg') = constructRoute ivm icm truckCost truckCap next_w pm a b visited rg
+  in case S.size visited == numOfNodes of
+      True  ->
+        let sc = calcSolutionCost ivm rs
+        in  (Solution {routes = rs, solutionCost = sc}, visited, rg')
+      False ->
+        generateSolution ivm icm truckCost truckCap ws pm a b visited' rg' (r:rs)
+
+-- | Conformes the indexes of the nodes to the convention expected
+-- | by automatic checker for this problem provided by teaching assistant.
+-- | Takes a Solution and a number of warehouses.
+-- | Returns a Solution.
+conformSolution :: Solution -> Int -> Solution
+conformSolution (Solution routes solutionCost) n =
+  let confRoute (Route (h:ns) rc rd) = Route (h : (map (\x -> x - n) ns)) rc rd
+  in Solution (map confRoute routes) solutionCost
+>>>>>>> generating solution.
+
 solve :: Graph -> IO ()
-solve _ = putStrLn "Bazzzzzinga!"
+solve g@(ws, _, truckCap, truckCost) = do
+  let vm = vertexMap g
+  let vc = vertexCost vm
+  let pm = initPheromoneMap vm 1.2
+  let nw = length ws
+  rg <- getStdGen
+  
+  let (sol, _, _) =  generateSolution vm vc truckCost truckCap [0..nw-1] pm 1.3 1.4 S.empty rg []
+
+  putStr . solutionToString 1 $ conformSolution sol nw
+
