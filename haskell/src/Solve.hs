@@ -296,11 +296,12 @@ generateSolution :: RandomGen g =>
   S.Set Int -> g -> [Route] ->
   (Solution, S.Set Int, g)
 generateSolution ivm icm truckCost truckCap ws pm a b visited rg rs =
-  let numOfNodes    = (size $ extent ivm) - length ws 
+  let wsn           = length ws
+      end           = size $ extent ivm  
       wsProbs       = zip ws (cycle [1.0,1.0,0.7,0.5,0.6])
       next_w = fromMaybe 1 . fst $ rouletteWheel rg wsProbs (sum $ map snd wsProbs) 
       (r, visited', rg') = constructRoute ivm icm truckCost truckCap next_w pm a b visited rg
-  in case S.size visited == numOfNodes of
+  in case S.isSubsetOf (S.fromList [wsn..end-1]) visited of
       True  ->
         let sc = calcSolutionCost ivm rs
         in  (Solution {routes = rs, solutionCost = sc}, visited, rg')
