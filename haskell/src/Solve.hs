@@ -323,16 +323,6 @@ generateSolution ivm icm truckCost truckCap ws pm a b visited rg rs =
       False ->
         generateSolution ivm icm truckCost truckCap ws pm a b visited' rg' (r:rs)
 
--- | Conformes the indexes of the nodes to the convention expected
--- | by automatic checker for this problem provided by teaching assistant.
--- | Takes a Solution and a number of warehouses.
--- | Returns a Solution.
-conformSolution :: Solution -> Int -> Solution
-conformSolution (Solution routes solutionCost) n =
-  let confRoute (Route (h:ns) rc rd) = Route ((h + 1) : (map (\x -> x-n) ns)) rc rd
-  in Solution (map confRoute routes) solutionCost
->>>>>>> generating solution.
-
 solve :: Graph -> IO ()
 solve g@(ws, _, truckCap, truckCost) = do
   let vm = vertexMap g
@@ -341,7 +331,7 @@ solve g@(ws, _, truckCap, truckCost) = do
   let nw = length ws
   rg <- getStdGen
   
-  let (sol, _, _) =  generateSolution vm vc truckCost truckCap [0..nw-1] pm 1.3 1.4 S.empty rg []
+  let (sol, _, _) = generateSolution vm vc truckCost truckCap [0..nw-1] pm 1.3 1.4 S.empty rg []
 
-  putStr . solutionToString 1 nw $ sol
+  putStr $ solutionToString (-nw) sol
 
