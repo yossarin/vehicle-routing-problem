@@ -17,6 +17,7 @@ module Solve.Data (
 , sortSolutions
 , solutionToString
 , probabilitySelect
+, rouletteWheel
 ) where
 
 import Data.List (sortBy, minimumBy, intercalate)
