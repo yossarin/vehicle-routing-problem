@@ -7,5 +7,6 @@
 
 for P in `ls params*`
 do
+    echo " Runnig with parameters $P"
     ./haskell/dist/build/hmo-project/hmo-project in.txt $P +RTS -N4 > $P.res
 done
