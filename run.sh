@@ -1,0 +1,11 @@
+#!/bin/bash
+
+#  This script looks for all the files that start with params*,
+#  and runs the hmo-project executable using the params* files
+#  as parameters for each run. The results are saved in the same
+#  directory as $FILENAME.res
+
+for P in `ls params*`
+do
+    ./haskell/dist/build/hmo-project/hmo-project in.txt $P +RTS -N4 > $P.res
+done

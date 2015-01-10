@@ -47,9 +47,6 @@ main = do
   let p = if length args > 1 then getACOParameters $ args!!1             else defaultAcoParameters
     
   parms <- p
-  putStrLn "ACO Parameters "
-  putStrLn "(a, b, bw, iter, m, mutProb, evap, deposit, initPher)" 
-  print parms
 
   solve (parse f) parms
 
