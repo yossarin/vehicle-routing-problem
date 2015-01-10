@@ -1,6 +1,7 @@
 module Solve
 ( solve
 , module Solve.Data
+, ACOParameters
 ) where
 
 import Control.Parallel.Strategies (parMap, rseq)
@@ -358,20 +359,28 @@ getSolution ivm icm truckCost truckCap ws pm a b bw s =
   (\(sol, _, _) -> sol) $
     generateSolution ivm icm truckCost truckCap ws pm a b bw S.empty (mkStdGen s) []
 
-solve :: Graph -> IO ()
-solve g@(ws, _, truckCap, truckCost) = do
+type ACOParameters = (Double, Double, Double, Int, Int, Float, Double, Double, Double)
+
+solve :: Graph -> ACOParameters -> IO ()
+solve g@(ws, _, truckCap, truckCost) parms = do
+  
+  let (a, b, bw, iter, m, mutProb, evap, deposit, initPher) = parms
+
   let vm = vertexMap g
   let vc = vertexCost vm
-  let pm = initPheromoneMap vm 1.0
+  let pm = initPheromoneMap vm initPher 
   let nw = length ws
   rg <- getStdGen
+
+  {--
   let a = 0.1
   let b = -3.0 -- negative rewards short route, smaller negative bigger reward.
   let bw = -1.0
-  let iter = 200
-  let m = 25
+  let iter = 6000
+  let m = 3000
   let mutProb = 0.15
   let evap = 0.1
   let deposit = 5.0E5
+  --}
   let sol = aco vm vc truckCost truckCap nw pm a b bw evap deposit mutProb iter m rg
   putStr $ solutionToString (-nw) sol

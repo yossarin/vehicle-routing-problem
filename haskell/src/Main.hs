@@ -18,10 +18,38 @@ parse f = do
   let truckCos  = head . head $ groupedFIle!!7
   (warehouses, customers, truckCap, truckCos)
 
+getACOParameters :: FilePath -> IO ACOParameters
+getACOParameters fp  = do
+  f <- readFile fp
+  let fourthLine = (lines f)!!3
+  let p          = words fourthLine
+  
+  let a        = (read $ p!!0) :: Double
+  let b        = (read $ p!!1) :: Double
+  let bw       = (read $ p!!2) :: Double
+  let iter     = (read $ p!!3) :: Int
+  let m        = (read $ p!!4) :: Int
+  let mutProb  = (read $ p!!5) :: Float
+  let evap     = (read $ p!!6) :: Double
+  let deposit  = (read $ p!!7) :: Double
+  let initPher = (read $ p!!8) :: Double
+  
+  return (a, b, bw, iter, m, mutProb, evap, deposit, initPher)
+
+defaultAcoParameters :: IO ACOParameters
+defaultAcoParameters = return (0.05, -0.05, -1.0, 2000, 18, 0.1, 0.8, 1.0, 2.0)
+
 main :: IO ()
 main = do
   args <- getArgs
   f <- readFile $ head args
+  
+  let p = if length args > 1 then getACOParameters $ args!!1             else defaultAcoParameters
+    
+  parms <- p
+  putStrLn "ACO Parameters "
+  putStrLn "(a, b, bw, iter, m, mutProb, evap, deposit, initPher)" 
+  print parms
 
-  solve $ parse f
+  solve (parse f) parms
 
