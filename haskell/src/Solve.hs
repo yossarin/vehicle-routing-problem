@@ -191,7 +191,7 @@ probability :: Int -> Int
   -> Double -> Double -> Double
 probability i p pm vc a b =
   mul (pm ! (Z :. i :. p)) (fromIntegral $ vc ! (Z :. i :. p))
-  where mul x y = x**a * y**b
+  where mul x y = (x**a) * (y**b)
 
 -- | Takes index mapping to vertex data, set of blocked nodes,
 -- | current route and remaining truck capacity then returns indexes of
@@ -224,7 +224,7 @@ selectWarehouse :: RandomGen g =>
   PheromoneMap -> Double -> Double ->
   [(Int, Capacity)] -> g -> (Maybe (Int, Capacity), g)
 selectWarehouse pm a b = probabilitySelect prob
-  where prob (w, c) = (fromIntegral c)**b * (pm ! (Z :. w :. w))**a
+  where prob (w, c) = (fromIntegral c ** b) * ((pm ! (Z :. w :. w))**a)
 
 -- | Function taking 2 node indexes and returning travel cost between the two
 -- | and demand of the second one.
@@ -328,15 +328,18 @@ aco ::
   TruckCost -> TruckCap -> Int ->
   PheromoneMap -> Double -> Double -> Double ->
   Double -> Double ->
-  Float -> Int -> Int -> StdGen -> Solution
+  Float -> Int -> Int -> StdGen -> IO Solution
 aco ivm icm trCost trCap nw pm a b bw evap deposit mutProb iter m rg =
   aco' (Solution [] 1000000) pm rg iter
   where ws = map (\i -> (i, elemCap $ ivm ! (Z :. i))) [0..nw-1]
         map' = parMap rseq
         aco' best pm' rg' iter'
-          | iter' == 0 = best
-          | solutionCost best <= solutionCost best' = aco' best pm'' rg'' (iter' - 1)
-          | otherwise = aco' best' pm'' rg'' $ iter' - 1
+          | iter' == 0 = return best
+          | solutionCost best <= solutionCost best' =
+                        print (solutionCost best) >>
+                        aco' best pm'' rg'' (iter' - 1)
+          | otherwise = print (solutionCost best') >>
+                        aco' best' pm'' rg'' (iter' - 1)
           where seeds = take m $ randoms rg'
                 sols = map' (getSolution ivm icm trCost trCap ws pm a b bw) seeds
                 muts = map' (getMutation ivm icm trCost nw mutProb) $ sols `zip` seeds
@@ -382,5 +385,5 @@ solve g@(ws, _, truckCap, truckCost) parms = do
   let evap = 0.1
   let deposit = 5.0E5
   --}
-  let sol = aco vm vc truckCost truckCap nw pm a b bw evap deposit mutProb iter m rg
+  sol <- aco vm vc truckCost truckCap nw pm a b bw evap deposit mutProb iter m rg
   putStr $ solutionToString (-nw) sol

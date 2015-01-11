@@ -21,10 +21,10 @@ parse f = do
 getACOParameters :: FilePath -> IO ACOParameters
 getACOParameters fp  = do
   f <- readFile fp
-  let fourthLine = (lines f)!!3
+  let fourthLine = lines f !! 3
   let p          = words fourthLine
   
-  let a        = (read $ p!!0) :: Double
+  let a        = (read $ head p) :: Double
   let b        = (read $ p!!1) :: Double
   let bw       = (read $ p!!2) :: Double
   let iter     = (read $ p!!3) :: Int
