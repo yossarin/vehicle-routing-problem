@@ -10,5 +10,5 @@ do
     echo " Runnig with parameters $P"
     ./haskell/dist/build/hmo-project/hmo-project in.txt $P +RTS -N -RTS > $P.res
     echo " Done for $P"
-    tail -n 1 $P
+    tail -n 1 $P.res
 done
