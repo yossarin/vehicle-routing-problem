@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+
 module Solve
 ( solve
 , module Solve.Data
@@ -7,6 +9,7 @@ module Solve
 import Control.Parallel.Strategies (parMap, rseq)
 import Data.Array.Repa hiding (map, (++), zipWith)
 import qualified Data.Array.Repa.Operators.Mapping as M
+import Data.Array.Repa.Unsafe (unsafeTraverse)
 import Data.Array.Repa.Repr.Vector (fromListVector, V)
 import Data.List (delete, foldl', groupBy, sort)
 import Data.Maybe (fromMaybe)
@@ -28,28 +31,31 @@ type PheromoneMap   = Array U DIM2 Double
 
 -- | Takes a reference to node index data mapping, cost of sending a truck,
 -- | routes for each truck and calculates the total cost.
+{-# INLINE calcSolutionCost #-}
 calcSolutionCost :: IndexVertexMap -> [Route] -> Cost
 calcSolutionCost ivm rs =
   let traveling = sum $ map routeCost rs
       whs = usedWarehouses rs
-      whCosts = sum $ map (\(i,_,_) -> elemCost $ ivm ! (Z :. i)) whs
+      whCosts = sum $ map (\(i,_,_) -> elemCost $ ivm `unsafeIndex` (Z :. i)) whs
   in traveling + whCosts
 
 -- | Takes a node index travel cost mapping, list of nodes and calculates
 -- | total travel cost with returning to starting location.
+{-# INLINE calcTravelCost #-}
 calcTravelCost :: IndexCostMap -> [Int] -> Cost
 calcTravelCost icm xs = sum $ map calcCost pairs
   where pairs = zip xs $ tail $ cycle xs
-        calcCost (i,j) = icm ! (Z :. i :. j)
+        calcCost (i,j) = icm `unsafeIndex` (Z :. i :. j)
 
 -- | Takes a node index data mapping and a solution. Returns True if all
 -- | the routes' demand don't exceed the capacity of their warehouses.
 canSupply :: IndexVertexMap -> Solution -> Bool
 canSupply ivm (Solution rs _) = all canSupply' $ usedWarehouses rs
-  where canSupply' (i, _, d) = d <= elemCap (ivm ! (Z :. i))
+  where canSupply' (i, _, d) = d <= elemCap (ivm `unsafeIndex` (Z :. i))
 
+{-# INLINE indexElemVer #-}
 indexElemVer :: IndexVertexMap -> Int -> Vertex
-indexElemVer ivm i = elemVer $ ivm ! (Z :. i)
+indexElemVer ivm i = elemVer $ ivm `unsafeIndex` (Z :. i)
 
 -- | Takes node index data and index cost mappings, number of warehouses,
 -- | mutation probability, random generator and a solution. Returns new
@@ -101,8 +107,8 @@ changeWarehouse icm w r@(Route ns rc _) =
   let oldWh = head ns
       start = head $ tail ns
       end   = last ns
-      oldWhTravel = icm ! (Z :. oldWh :. start) + icm ! (Z :. oldWh :. end)
-      newWhTravel = icm ! (Z :. w :. start) + icm ! (Z :. w :. end)
+      oldWhTravel = icm `unsafeIndex` (Z :. oldWh :. start) + icm `unsafeIndex` (Z :. oldWh :. end)
+      newWhTravel = icm `unsafeIndex` (Z :. w :. start) + icm `unsafeIndex` (Z :. w :. end)
   in r { routeNodes = w : tail ns, routeCost = rc - oldWhTravel + newWhTravel }
 
 -- | Returns indexes of used warehouses, counts how many times they are used and
@@ -112,10 +118,12 @@ usedWarehouses = map cnts . groupBy (\(a,_) (b,_) -> a == b) . sort . map whDem
   where whDem r = (head $ routeNodes r, routeDemand r)
         cnts xs = (fst $ head xs, length xs, sum $ map snd xs)
 
+{-# INLINE euclideanDistance #-}
 euclideanDistance :: Vertex -> Vertex -> Float
 euclideanDistance (x1, y1) (x2, y2) =
   sqrt . fromIntegral $ (x1 - x2)^2 + (y1 - y2)^2
 
+{-# INLINE travelCost #-}
 travelCost :: Vertex -> Vertex -> Cost
 travelCost a = truncate . (*100) . euclideanDistance a
 
@@ -162,7 +170,7 @@ initPheromoneMap ivm p =
   where end = size $ extent ivm
 
 -- | Takes a mapping of pheromones and decreases its values by fixed rate r
--- | ! Deprecated !
+{-# DEPRECATED evaporatePheromoneMap "Use updatePheromoneMap" #-}
 evaporatePheromoneMap :: Monad m => PheromoneMap -> Double -> m PheromoneMap
 evaporatePheromoneMap ivm r = computeP $ M.map (\x -> (1-r)*x) ivm
 
@@ -171,9 +179,9 @@ evaporatePheromoneMap ivm r = computeP $ M.map (\x -> (1-r)*x) ivm
 -- | to the standard reinforcement and evaporation formula for ACO.
 updatePheromoneMap :: Monad m =>
   Solution -> PheromoneMap -> Double -> Double -> m PheromoneMap
-updatePheromoneMap s pm scal r = computeP $ traverse pm id update 
-  where delta    = scal / fromIntegral (solutionCost s)
-        edges    = concatMap (pairs . routeNodes) $ routes s
+updatePheromoneMap !s !pm !scal !r = computeP $ unsafeTraverse pm id update 
+  where !delta    = scal / fromIntegral (solutionCost s)
+        !edges    = concatMap (pairs . routeNodes) $ routes s
         pairs [] = []
         pairs xs@(x:_) = (x,x) : zip xs (tail $ cycle xs)
         update get (Z :. i :. j) = 
@@ -186,11 +194,12 @@ updatePheromoneMap s pm scal r = computeP $ traverse pm id update
 -- | parameter a and b and calculates the probability of choosing
 -- | the potential position as a next hop via standard formula for ACO.
 -- | The probability isn't scaled to [0, 1] interval.
+{-# INLINE probability #-}
 probability :: Int -> Int 
   -> PheromoneMap -> IndexCostMap
   -> Double -> Double -> Double
 probability i p pm vc a b =
-  mul (pm ! (Z :. i :. p)) (fromIntegral $ vc ! (Z :. i :. p))
+  mul (pm `unsafeIndex` (Z :. i :. p)) (fromIntegral $ vc `unsafeIndex` (Z :. i :. p))
   where mul x y = (x**a) * (y**b)
 
 -- | Takes index mapping to vertex data, set of blocked nodes,
@@ -203,7 +212,7 @@ nextCustomers ivm blocked tc
   | otherwise = filter canVisit [0..end-1]
       where end = size $ extent ivm
             canVisit i | i `S.member` blocked = False
-                       | otherwise = case ivm ! (Z :. i) of
+                       | otherwise = case ivm `unsafeIndex` (Z :. i) of
                             War {} -> False
                             Cus _ dem -> dem <= tc
 
@@ -224,7 +233,7 @@ selectWarehouse :: RandomGen g =>
   PheromoneMap -> Double -> Double ->
   [(Int, Capacity)] -> g -> (Maybe (Int, Capacity), g)
 selectWarehouse pm a b = probabilitySelect prob
-  where prob (w, c) = (fromIntegral c ** b) * ((pm ! (Z :. w :. w))**a)
+  where prob (w, c) = (fromIntegral c ** b) * ((pm `unsafeIndex` (Z :. w :. w))**a)
 
 -- | Function taking 2 node indexes and returning travel cost between the two
 -- | and demand of the second one.
@@ -271,7 +280,7 @@ constructRoute :: RandomGen g =>
   S.Set Int -> g ->
   (Route, S.Set Int, g)
 constructRoute ivm icm truckCost truckCap wh pm a b visited rg =
-  let cdf i j = (icm ! (Z :. i :. j), elemDem $ ivm ! (Z :. j))
+  let cdf i j = (icm `unsafeIndex` (Z :. i :. j), elemDem $ ivm `unsafeIndex` (Z :. j))
       ncs = nextCustomers ivm
       sc = selectNextCustomer icm pm a b
       route = Route [wh] truckCost 0
@@ -331,9 +340,9 @@ aco ::
   Float -> Int -> Int -> StdGen -> IO Solution
 aco ivm icm trCost trCap nw pm a b bw evap deposit mutProb iter m rg =
   aco' (Solution [] 1000000) pm rg iter
-  where ws = map (\i -> (i, elemCap $ ivm ! (Z :. i))) [0..nw-1]
+  where ws = map (\i -> (i, elemCap $ ivm `unsafeIndex` (Z :. i))) [0..nw-1]
         map' = parMap rseq
-        aco' best pm' rg' iter'
+        aco' !best !pm' !rg' !iter'
           | iter' == 0 = return best
           | solutionCost best <= solutionCost best' =
                         print (solutionCost best) >>

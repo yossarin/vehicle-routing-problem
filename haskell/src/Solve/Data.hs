@@ -69,6 +69,7 @@ data Solution = Solution {
 } deriving (Show)
 
 -- | Compares solutions by their cost.
+{-# INLINE cmpSolutionCost #-}
 cmpSolutionCost :: Solution -> Solution -> Ordering
 cmpSolutionCost a b = solutionCost a `compare` solutionCost b
 
